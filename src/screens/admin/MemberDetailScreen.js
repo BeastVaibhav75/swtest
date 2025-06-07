@@ -6,6 +6,7 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,7 +14,7 @@ import {
     View,
 } from 'react-native';
 
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function MemberDetailScreen({ route, navigation }) {
   const { member: initialMember } = route.params;
@@ -25,6 +26,7 @@ export default function MemberDetailScreen({ route, navigation }) {
   const [activeLoans, setActiveLoans] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [loanLoading, setLoanLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchMemberData = async () => {
     try {
@@ -62,7 +64,7 @@ export default function MemberDetailScreen({ route, navigation }) {
         setSelectedLoan(null);
       }
     } catch (error) {
-      console.error('Error fetching active loans:', error);
+      console.error('Error fetching active loans:', error.response || error.message || error);
       Alert.alert('Error', 'Failed to fetch active loans');
     } finally {
       setLoanLoading(false);
@@ -79,12 +81,22 @@ export default function MemberDetailScreen({ route, navigation }) {
       });
       setInstallments(response.data);
     } catch (error) {
-      console.error('Error fetching installments:', error);
+      console.error('Error fetching installments:', error.response || error.message || error);
       Alert.alert('Error', 'Failed to fetch installments');
     } finally {
       setInstallmentsLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchMemberData(),
+      fetchActiveLoans(),
+      fetchInstallments()
+    ]);
+    setRefreshing(false);
+  }, [fetchMemberData, fetchActiveLoans, fetchInstallments]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -104,7 +116,12 @@ export default function MemberDetailScreen({ route, navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Member Information</Text>
         <View style={styles.infoItem}>

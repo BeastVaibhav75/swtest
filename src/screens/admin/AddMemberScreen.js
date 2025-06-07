@@ -1,14 +1,16 @@
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // For Android Emulator
@@ -16,14 +18,18 @@ import {
 // For iOS Simulator
 // const API_URL = 'http://localhost:5000/api';
 // For physical device (replace with your computer's IP address)
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function AddMemberScreen({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [memberId, setMemberId] = useState('');
+  const [role, setRole] = useState('member'); // Default role
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleAddMember = async () => {
     if (!name || !phone) {
@@ -60,6 +66,18 @@ export default function AddMemberScreen({ navigation }) {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setName('');
+    setPhone('');
+    setMemberId('');
+    setRole('member');
+    setPassword('');
+    setCredentials(null);
+    setModalVisible(false);
+    setRefreshing(false);
+  }, []);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -70,7 +88,12 @@ export default function AddMemberScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.form}>
         <Text style={styles.label}>Name</Text>
         <TextInput
@@ -131,7 +154,7 @@ export default function AddMemberScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 

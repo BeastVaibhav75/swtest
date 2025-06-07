@@ -50,10 +50,10 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
     }
 
     // Check if phone number already exists
-    const existingUser = await User.findOne({ phone });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Phone number already registered' });
-    }
+    // const existingUser = await User.findOne({ phone });
+    // if (existingUser) {
+    //   return res.status(400).json({ message: 'Phone number already registered' });
+    // }
 
     // Generate unique member ID
     const memberId = await generateMemberId();
@@ -162,12 +162,12 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     }
 
     // Check if new phone number already exists for another user
-    if (phone && phone !== member.phone) {
-      const existingUser = await User.findOne({ phone });
-      if (existingUser) {
-        return res.status(400).json({ message: 'Phone number already registered' });
-      }
-    }
+    // if (phone && phone !== member.phone) {
+    //   const existingUser = await User.findOne({ phone });
+    //   if (existingUser) {
+    //     return res.status(400).json({ message: 'Phone number already registered' });
+    //   }
+    // }
 
     // Update fields if provided
     if (name) member.name = name;

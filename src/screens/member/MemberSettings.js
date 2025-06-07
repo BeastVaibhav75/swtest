@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     Alert,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -17,6 +18,7 @@ export default function MemberSettings({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -62,8 +64,22 @@ export default function MemberSettings({ navigation }) {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPasswordForm(false);
+    setRefreshing(false);
+  }, []);
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>

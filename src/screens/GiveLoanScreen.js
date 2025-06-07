@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useApi } from '../hooks/useApi';
 import { loansAPI } from '../services/api';
 
@@ -14,6 +14,7 @@ const GiveLoanScreen = () => {
   const [interestRate, setInterestRate] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { loading, error, execute: createLoan } = useApi(loansAPI.create);
 
@@ -46,8 +47,22 @@ const GiveLoanScreen = () => {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Reset input fields on refresh
+    setAmount('');
+    setInterestRate('');
+    setDate(new Date());
+    setRefreshing(false);
+  }, []);
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Give Loan</Text>
         <Text style={styles.subtitle}>{member.name}</Text>

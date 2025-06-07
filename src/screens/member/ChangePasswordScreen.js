@@ -1,12 +1,14 @@
-import axios from 'axios';
-import React, { useState } from 'react';
+import axios from 'axios'; // Import axios
+import React, { useCallback, useState } from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -15,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 // For iOS Simulator
 // const API_URL = 'http://localhost:5000/api';
 // For physical device (replace with your computer's IP address)
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function ChangePasswordScreen({ navigation }) {
   const { user } = useAuth();
@@ -23,6 +25,7 @@ export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -74,8 +77,21 @@ export default function ChangePasswordScreen({ navigation }) {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setRefreshing(false);
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.form}>
         <Text style={styles.label}>Current Password</Text>
         <TextInput
@@ -117,7 +133,7 @@ export default function ChangePasswordScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

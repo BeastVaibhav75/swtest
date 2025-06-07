@@ -1,22 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
-export default function HistoryScreen({ route, navigation }) {
+export default function HistoryScreen() {
+  const route = useRoute();
+  const navigation = useNavigation();
   const { memberId, type, memberName } = route.params;
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchHistory = async () => {
     try {
@@ -56,8 +60,15 @@ export default function HistoryScreen({ route, navigation }) {
       Alert.alert('Error', 'Failed to fetch history');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHistory();
+    setRefreshing(false);
+  }, [fetchHistory]);
 
   useFocusEffect(
     useCallback(() => {
@@ -101,6 +112,12 @@ export default function HistoryScreen({ route, navigation }) {
           renderItem={renderItem}
           keyExtractor={item => item._id}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+            />
+          }
         />
       )}
     </View>

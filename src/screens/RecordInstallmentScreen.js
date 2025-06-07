@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useApi } from '../hooks/useApi';
 import { installmentsAPI } from '../services/api';
 
@@ -13,6 +13,7 @@ const RecordInstallmentScreen = () => {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { loading, error, execute: createInstallment } = useApi(installmentsAPI.create);
 
@@ -44,8 +45,22 @@ const RecordInstallmentScreen = () => {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Re-fetch any data needed for this screen. For this screen, it's about input, not fetched data.
+    // So, we might just reset inputs or refresh member data if needed.
+    setAmount('');
+    setDate(new Date());
+    setRefreshing(false);
+  }, []);
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Record Installment</Text>
         <Text style={styles.subtitle}>{member.name}</Text>

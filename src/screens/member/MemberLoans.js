@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { loansAPI } from '../../services/api';
 
@@ -8,6 +8,7 @@ export default function MemberLoans() {
   const [activeLoans, setActiveLoans] = useState([]);
   const [pastLoans, setPastLoans] = useState([]);
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchLoans();
@@ -27,6 +28,12 @@ export default function MemberLoans() {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLoans();
+    setRefreshing(false);
+  }, [fetchLoans]);
 
   const calculateInterest = (loan) => {
     // Calculate 1% interest on the outstanding amount
@@ -120,7 +127,15 @@ export default function MemberLoans() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Loans</Text>
       </View>

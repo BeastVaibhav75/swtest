@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,7 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 // For iOS Simulator
 // const API_URL = 'http://localhost:5000/api';
 // For physical device (replace with your computer's IP address)
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function LoginScreen({ navigation }) {
   const [memberId, setMemberId] = useState('');

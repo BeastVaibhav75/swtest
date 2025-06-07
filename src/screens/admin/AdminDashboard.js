@@ -11,7 +11,7 @@ import { expensesAPI, fundAPI, installmentsAPI, loansAPI, membersAPI } from '../
 // For iOS Simulator
 // const API_URL = 'http://localhost:5000/api';
 // For physical device (replace with your computer's IP address)
-const API_URL = 'http://192.168.1.11:5000/api';
+const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);

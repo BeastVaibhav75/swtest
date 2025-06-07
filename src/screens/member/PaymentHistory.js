@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
+    RefreshControl,
     StyleSheet,
     Text,
     View,
@@ -15,6 +16,7 @@ export default function PaymentHistory() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchPayments = async () => {
     try {
@@ -85,6 +87,12 @@ export default function PaymentHistory() {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPayments();
+    setRefreshing(false);
+  }, [fetchPayments]);
+
   useEffect(() => {
     fetchPayments();
   }, [user]);
@@ -124,6 +132,12 @@ export default function PaymentHistory() {
           renderItem={renderPaymentItem}
           keyExtractor={(item, index) => `${item.type}-${item.date}-${index}`}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+            />
+          }
         />
       )}
     </View>

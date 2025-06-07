@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { fundAPI } from '../../services/api';
 
@@ -9,6 +9,7 @@ export default function MemberEarnings() {
   const [monthlyInterest, setMonthlyInterest] = useState(0);
   const [distributions, setDistributions] = useState([]);
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchEarningsData();
@@ -47,6 +48,12 @@ export default function MemberEarnings() {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchEarningsData();
+    setRefreshing(false);
+  }, [fetchEarningsData]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -56,7 +63,15 @@ export default function MemberEarnings() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Earnings</Text>
       </View>

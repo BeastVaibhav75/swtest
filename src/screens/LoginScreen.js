@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +16,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { login, loading } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleLogin = async () => {
     if (!memberId || !password) {
@@ -32,8 +35,21 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setMemberId('');
+    setPassword('');
+    setShowPassword(false);
+    setRefreshing(false);
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <Text style={styles.title}>Swanidhi</Text>
       <View style={styles.inputContainer}>
         <TextInput
@@ -73,7 +89,7 @@ export default function LoginScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

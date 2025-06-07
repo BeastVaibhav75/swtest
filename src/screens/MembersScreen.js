@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useApi } from '../hooks/useApi';
 import { membersAPI } from '../services/api';
 
@@ -8,10 +8,17 @@ const MembersScreen = () => {
   const navigation = useNavigation();
   const { data: members, loading, error, execute: fetchMembers } = useApi(membersAPI.getAll);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchMembers();
+    setRefreshing(false);
+  }, [fetchMembers]);
 
   const filteredMembers = members?.filter(
     (member) =>
@@ -62,6 +69,12 @@ const MembersScreen = () => {
         renderItem={renderMemberItem}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }
       />
     </View>
   );
