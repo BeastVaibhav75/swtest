@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, LayoutAnimation, Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
+import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { expensesAPI, fundAPI, installmentsAPI, loansAPI, membersAPI } from '../../services/api';
 
 // For Android Emulator
@@ -45,6 +46,7 @@ export default function AdminDashboard() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
+  const { updating } = useUpdateCheck();
 
   useEffect(() => {
     fetchDashboardData();
@@ -220,239 +222,247 @@ export default function AdminDashboard() {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#007AFF']}
-        />
-      }
-    >
-      {/* Dashboard Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Admin'}</Text>
-      </View>
-
-      {/* Cash in Hand / Total Fund Section with Toggle */}
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Text style={styles.sectionTitle}>{showCashInHand ? 'Cash in Hand' : 'Total Fund'}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ marginRight: 8, color: '#666', fontSize: 14 }}>{showCashInHand ? 'Show Total Fund' : 'Show Cash in Hand'}</Text>
-            <Switch
-              value={!showCashInHand}
-              onValueChange={() => setShowCashInHand((prev) => !prev)}
-              thumbColor={showCashInHand ? '#007AFF' : '#34C759'}
-              trackColor={{ false: '#ccc', true: '#007AFF' }}
-            />
-          </View>
+    <View style={styles.container}>
+      {updating && (
+        <View style={styles.updateOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.updateText}>Updating...</Text>
         </View>
-        <View style={styles.valueRow}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#007AFF" />
-          ) : (
-            <Text style={styles.shareValueText}>₹{(showCashInHand ? cashInHand : totalFund).toFixed(2)}</Text>
-          )}
-        </View>
-        <View style={styles.breakupContainer}>
-          {showCashInHand ? (
-            <>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>Total Fund</Text>
-                <Text style={styles.breakupValue}>₹{totalFund.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>- Total Loans</Text>
-                <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{totalLoans.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>= Cash in Hand</Text>
-                <Text style={[styles.breakupValue, { color: '#007AFF', fontWeight: 'bold' }]}>₹{cashInHand.toFixed(2)}</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>Base Fund (Installments)</Text>
-                <Text style={styles.breakupValue}>₹{baseFund.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>+ Interest (1% from repayments)</Text>
-                <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{interestFromLoans.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>+ Deduction (2% from loans)</Text>
-                <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{deductionFromLoans.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>- Expenses</Text>
-                <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{totalExpenses.toFixed(2)}</Text>
-              </View>
-              <View style={styles.breakupRow}>
-                <Text style={styles.breakupLabel}>= Total Fund</Text>
-                <Text style={[styles.breakupValue, { color: '#007AFF', fontWeight: 'bold' }]}>₹{totalFund.toFixed(2)}</Text>
-              </View>
-            </>
-          )}
-        </View>
-      </View>
-
-      {/* Value of Share Section */}
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Text style={styles.sectionTitle}>Share Value</Text>
-        </View>
-        <View style={styles.valueRow}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#007AFF" />
-          ) : (
-            <Text style={styles.shareValueText}>₹{shareValue.toFixed(2)}</Text>
-          )}
-        </View>
-        <Text style={styles.valueLabel}>Per Member Share</Text>
-        <View style={styles.breakupContainer}>
-          <View style={styles.breakupRow}>
-            <Text style={styles.breakupLabel}>Base Share</Text>
-            <Text style={styles.breakupValue}>₹{(baseFund / totalMembers || 0).toFixed(2)}</Text>
-          </View>
-          <View style={styles.breakupRow}>
-            <Text style={styles.breakupLabel}>+ Interest Share</Text>
-            <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{(interestFromLoans / totalMembers || 0).toFixed(2)}</Text>
-          </View>
-          <View style={styles.breakupRow}>
-            <Text style={styles.breakupLabel}>+ Deduction Share</Text>
-            <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{(deductionFromLoans / totalMembers || 0).toFixed(2)}</Text>
-          </View>
-          <View style={styles.breakupRow}>
-            <Text style={styles.breakupLabel}>- Shared Expense</Text>
-            <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{(totalExpenses / totalMembers || 0).toFixed(2)}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Total Interest Section */}
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Text style={styles.sectionTitle}>Total Interest</Text>
-        </View>
-        <View style={styles.valueRow}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#007AFF" />
-          ) : (
-            <Text style={styles.shareValueText}>₹{totalInterest.toFixed(2)}</Text>
-          )}
-        </View>
-        <Text style={styles.valueLabel}>This Month's Interest</Text>
-        <View style={styles.breakupRow}>
-          <Text style={styles.breakupLabel}>1% Interest from Loans</Text>
-          <Text style={styles.breakupValue}>₹{interestFromLoans.toFixed(2)}</Text>
-        </View>
-        <View style={styles.breakupRow}>
-          <Text style={styles.breakupLabel}>2% Deduction from Loans</Text>
-          <Text style={styles.breakupValue}>₹{deductionFromLoans.toFixed(2)}</Text>
-        </View>
-        <Text style={[styles.valueLabel, { marginTop: 10, fontSize: 12, color: '#666' }]}>
-          Note: Both interest and deduction are added equally to all members' share values
-        </Text>
-      </View>
-
-      {/* Recent Activities Section */}
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Activities', { activities: recentActivities })} style={styles.arrowBtn}>
-            <Icon name="chevron-right" size={28} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.valueRow}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#007AFF" />
-          ) : (
-            <Text style={styles.shareValueText}>{todayActivitiesCount} activities today</Text>
-          )}
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtonsContainer}>
-        <View style={styles.actionButtonsTopRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('UpdatePage')}>
-            <Text style={styles.actionButtonText}>Update</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('GiveLoanPage')}>
-            <Text style={styles.actionButtonText}>Give Loan</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.actionButtonsBottomRow}>
-          <TouchableOpacity style={[styles.actionButton, styles.bottomButton]} onPress={() => setIsExpenseModalVisible(true)}>
-            <Text style={styles.actionButtonText}>Add Expense</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Expense Modal */}
-      <Modal
-        visible={isExpenseModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsExpenseModalVisible(false)}
+      )}
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#007AFF']}
+          />
+        }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Expense</Text>
-              <TouchableOpacity onPress={() => setIsExpenseModalVisible(false)}>
-                <Icon name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
+        {/* Dashboard Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Admin Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Admin'}</Text>
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Amount (₹)</Text>
-              <TextInput
-                style={styles.input}
-                value={expenseAmount}
-                onChangeText={setExpenseAmount}
-                placeholder="Enter amount"
-                keyboardType="numeric"
-                editable={!isSubmitting}
+        {/* Cash in Hand / Total Fund Section with Toggle */}
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <Text style={styles.sectionTitle}>{showCashInHand ? 'Cash in Hand' : 'Total Fund'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ marginRight: 8, color: '#666', fontSize: 14 }}>{showCashInHand ? 'Show Total Fund' : 'Show Cash in Hand'}</Text>
+              <Switch
+                value={!showCashInHand}
+                onValueChange={() => setShowCashInHand((prev) => !prev)}
+                thumbColor={showCashInHand ? '#007AFF' : '#34C759'}
+                trackColor={{ false: '#ccc', true: '#007AFF' }}
               />
             </View>
+          </View>
+          <View style={styles.valueRow}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.shareValueText}>₹{(showCashInHand ? cashInHand : totalFund).toFixed(2)}</Text>
+            )}
+          </View>
+          <View style={styles.breakupContainer}>
+            {showCashInHand ? (
+              <>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>Total Fund</Text>
+                  <Text style={styles.breakupValue}>₹{totalFund.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>- Total Loans</Text>
+                  <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{totalLoans.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>= Cash in Hand</Text>
+                  <Text style={[styles.breakupValue, { color: '#007AFF', fontWeight: 'bold' }]}>₹{cashInHand.toFixed(2)}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>Base Fund (Installments)</Text>
+                  <Text style={styles.breakupValue}>₹{baseFund.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>+ Interest (1% from repayments)</Text>
+                  <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{interestFromLoans.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>+ Deduction (2% from loans)</Text>
+                  <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{deductionFromLoans.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>- Expenses</Text>
+                  <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{totalExpenses.toFixed(2)}</Text>
+                </View>
+                <View style={styles.breakupRow}>
+                  <Text style={styles.breakupLabel}>= Total Fund</Text>
+                  <Text style={[styles.breakupValue, { color: '#007AFF', fontWeight: 'bold' }]}>₹{totalFund.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Reason</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={expenseReason}
-                onChangeText={setExpenseReason}
-                placeholder="Enter reason for expense"
-                multiline
-                numberOfLines={3}
-                editable={!isSubmitting}
-              />
+        {/* Value of Share Section */}
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <Text style={styles.sectionTitle}>Share Value</Text>
+          </View>
+          <View style={styles.valueRow}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.shareValueText}>₹{shareValue.toFixed(2)}</Text>
+            )}
+          </View>
+          <Text style={styles.valueLabel}>Per Member Share</Text>
+          <View style={styles.breakupContainer}>
+            <View style={styles.breakupRow}>
+              <Text style={styles.breakupLabel}>Base Share</Text>
+              <Text style={styles.breakupValue}>₹{(baseFund / totalMembers || 0).toFixed(2)}</Text>
             </View>
+            <View style={styles.breakupRow}>
+              <Text style={styles.breakupLabel}>+ Interest Share</Text>
+              <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{(interestFromLoans / totalMembers || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakupRow}>
+              <Text style={styles.breakupLabel}>+ Deduction Share</Text>
+              <Text style={[styles.breakupValue, styles.positiveValue]}>+ ₹{(deductionFromLoans / totalMembers || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakupRow}>
+              <Text style={styles.breakupLabel}>- Shared Expense</Text>
+              <Text style={[styles.breakupValue, styles.negativeValue]}>- ₹{(totalExpenses / totalMembers || 0).toFixed(2)}</Text>
+            </View>
+          </View>
+        </View>
 
-            <Text style={styles.modalNote}>
-              Note: This expense will be equally divided among all members
-            </Text>
+        {/* Total Interest Section */}
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <Text style={styles.sectionTitle}>Total Interest</Text>
+          </View>
+          <View style={styles.valueRow}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.shareValueText}>₹{totalInterest.toFixed(2)}</Text>
+            )}
+          </View>
+          <Text style={styles.valueLabel}>This Month's Interest</Text>
+          <View style={styles.breakupRow}>
+            <Text style={styles.breakupLabel}>1% Interest from Loans</Text>
+            <Text style={styles.breakupValue}>₹{interestFromLoans.toFixed(2)}</Text>
+          </View>
+          <View style={styles.breakupRow}>
+            <Text style={styles.breakupLabel}>2% Deduction from Loans</Text>
+            <Text style={styles.breakupValue}>₹{deductionFromLoans.toFixed(2)}</Text>
+          </View>
+          <Text style={[styles.valueLabel, { marginTop: 10, fontSize: 12, color: '#666' }]}>
+            Note: Both interest and deduction are added equally to all members' share values
+          </Text>
+        </View>
 
-            <TouchableOpacity
-              style={[styles.modalButton, isSubmitting && styles.disabledButton]}
-              onPress={handleAddExpense}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text style={styles.modalButtonText}>Add Expense</Text>
-              )}
+        {/* Recent Activities Section */}
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <Text style={styles.sectionTitle}>Recent Activities</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Activities', { activities: recentActivities })} style={styles.arrowBtn}>
+              <Icon name="chevron-right" size={28} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.valueRow}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.shareValueText}>{todayActivitiesCount} activities today</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <View style={styles.actionButtonsTopRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('UpdatePage')}>
+              <Text style={styles.actionButtonText}>Update</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('GiveLoanPage')}>
+              <Text style={styles.actionButtonText}>Give Loan</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.actionButtonsBottomRow}>
+            <TouchableOpacity style={[styles.actionButton, styles.bottomButton]} onPress={() => setIsExpenseModalVisible(true)}>
+              <Text style={styles.actionButtonText}>Add Expense</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Expense Modal */}
+        <Modal
+          visible={isExpenseModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsExpenseModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Expense</Text>
+                <TouchableOpacity onPress={() => setIsExpenseModalVisible(false)}>
+                  <Icon name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Amount (₹)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={expenseAmount}
+                  onChangeText={setExpenseAmount}
+                  placeholder="Enter amount"
+                  keyboardType="numeric"
+                  editable={!isSubmitting}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Reason</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={expenseReason}
+                  onChangeText={setExpenseReason}
+                  placeholder="Enter reason for expense"
+                  multiline
+                  numberOfLines={3}
+                  editable={!isSubmitting}
+                />
+              </View>
+
+              <Text style={styles.modalNote}>
+                Note: This expense will be equally divided among all members
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.modalButton, isSubmitting && styles.disabledButton]}
+                onPress={handleAddExpense}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Add Expense</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -688,5 +698,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
+  },
+  updateOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  updateText: {
+    color: '#FFFFFF',
+    marginTop: 10,
+    fontSize: 16,
   },
 }); 

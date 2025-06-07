@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
+import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { fundAPI, installmentsAPI } from '../../services/api';
 
 // Mock data for testing
@@ -42,6 +43,7 @@ export default function MemberDashboard({ navigation }) {
   const [error, setError] = useState(null);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [recentInstallments, setRecentInstallments] = useState([]);
+  const { updating } = useUpdateCheck();
 
   const fetchDashboardData = async () => {
     try {
@@ -144,91 +146,99 @@ export default function MemberDashboard({ navigation }) {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#007AFF']}
-        />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Member Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Member'}</Text>
-      </View>
+    <View style={styles.container}>
+      {updating && (
+        <View style={styles.updateOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.updateText}>Updating...</Text>
+        </View>
+      )}
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#007AFF']}
+          />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Member Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Member'}</Text>
+        </View>
 
-      {/* Balance Breakdown Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Balance Breakdown</Text>
-        <View style={styles.breakdownContainer}>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Your Investment</Text>
-            <Text style={styles.breakdownValue}>₹{investmentBalance.toFixed(2)}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Interest Earned</Text>
-            <Text style={[styles.breakdownValue, styles.positiveValue]}>+ ₹{interestEarned.toFixed(2)}</Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Expenses (Shared)</Text>
-            <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{totalExpenses.toFixed(2)}</Text>
-          </View>
-          <View style={[styles.breakdownRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Your Share Value</Text>
-            <Text style={[styles.breakdownValue, styles.totalValue]}>₹{shareValue.toFixed(2)}</Text>
+        {/* Balance Breakdown Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Balance Breakdown</Text>
+          <View style={styles.breakdownContainer}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Your Investment</Text>
+              <Text style={styles.breakdownValue}>₹{investmentBalance.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Interest Earned</Text>
+              <Text style={[styles.breakdownValue, styles.positiveValue]}>+ ₹{interestEarned.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Expenses (Shared)</Text>
+              <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{totalExpenses.toFixed(2)}</Text>
+            </View>
+            <View style={[styles.breakdownRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Your Share Value</Text>
+              <Text style={[styles.breakdownValue, styles.totalValue]}>₹{shareValue.toFixed(2)}</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Recent Installments Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Installments</Text>
+        {/* Recent Installments Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Installments</Text>
+            <TouchableOpacity 
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('PaymentHistory')}
+            >
+              <Text style={styles.viewAllText}>View All</Text>
+              <Icon name="chevron-right" size={20} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
+          {recentInstallments.length === 0 ? (
+            <Text style={styles.noData}>No recent installments</Text>
+          ) : (
+            recentInstallments.map((installment, index) => (
+              <View key={index} style={styles.installmentItem}>
+                <View>
+                  <Text style={styles.installmentDate}>
+                    {new Date(installment.date).toLocaleDateString()}
+                  </Text>
+                  <Text style={styles.installmentType}>Installment</Text>
+                </View>
+                <Text style={styles.installmentAmount}>₹{installment.amount}</Text>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Quick Actions */}
+        {/*
+        <View style={styles.actionButtonsRow}>
           <TouchableOpacity 
-            style={styles.viewAllButton}
-            onPress={() => navigation.navigate('PaymentHistory')}
+            style={[styles.actionButton, { marginRight: 8 }]} 
+            onPress={() => navigation.navigate('Earnings')}
           >
-            <Text style={styles.viewAllText}>View All</Text>
-            <Icon name="chevron-right" size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>View Earnings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={() => navigation.navigate('Loans')}
+          >
+            <Text style={styles.actionButtonText}>View Loans</Text>
           </TouchableOpacity>
         </View>
-        {recentInstallments.length === 0 ? (
-          <Text style={styles.noData}>No recent installments</Text>
-        ) : (
-          recentInstallments.map((installment, index) => (
-            <View key={index} style={styles.installmentItem}>
-              <View>
-                <Text style={styles.installmentDate}>
-                  {new Date(installment.date).toLocaleDateString()}
-                </Text>
-                <Text style={styles.installmentType}>Installment</Text>
-              </View>
-              <Text style={styles.installmentAmount}>₹{installment.amount}</Text>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Quick Actions */}
-      {/*
-      <View style={styles.actionButtonsRow}>
-        <TouchableOpacity 
-          style={[styles.actionButton, { marginRight: 8 }]} 
-          onPress={() => navigation.navigate('Earnings')}
-        >
-          <Text style={styles.actionButtonText}>View Earnings</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          onPress={() => navigation.navigate('Loans')}
-        >
-          <Text style={styles.actionButtonText}>View Loans</Text>
-        </TouchableOpacity>
-      </View>
-      */}
-    </ScrollView>
+        */}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -389,5 +399,21 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     padding: 20,
+  },
+  updateOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  updateText: {
+    color: '#FFFFFF',
+    marginTop: 10,
+    fontSize: 16,
   },
 }); 
