@@ -11,3 +11,6 @@ services:
         value: mongodb+srv://vaibhavsharmavee:9bGMn6faiw5jwCAw@swanidhi.dycrok1.mongodb.net/swanidhi
       - key: JWT_SECRET
         sync: false
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
