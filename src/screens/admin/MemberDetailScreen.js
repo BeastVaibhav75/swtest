@@ -17,6 +17,7 @@ const API_URL = 'http://192.168.1.11:5000/api';
 
 export default function MemberDetailScreen({ route, navigation }) {
   const { member: initialMember } = route.params;
+  console.log('Initial Member object:', initialMember);
   const [member, setMember] = useState(initialMember);
   const [loading, setLoading] = useState(false);
   const [installments, setInstallments] = useState([]);
