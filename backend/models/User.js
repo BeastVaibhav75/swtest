@@ -68,6 +68,6 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 
 // Drop existing indexes before creating new ones
 userSchema.index({ memberId: 1 }, { unique: true });
-userSchema.index({ phone: 1 }, { unique: true });
+
 
 module.exports = mongoose.model('User', userSchema); 
