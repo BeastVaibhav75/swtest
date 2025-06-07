@@ -4,13 +4,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const API_URL = 'http://192.168.1.11:5000/api';
@@ -48,6 +48,7 @@ export default function MemberDetailScreen({ route, navigation }) {
     try {
       setLoanLoading(true);
       const token = await AsyncStorage.getItem('token');
+      console.log('Fetching loans for member ID:', initialMember._id);
       const response = await axios.get(`${API_URL}/loans/member/${initialMember._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -71,6 +72,7 @@ export default function MemberDetailScreen({ route, navigation }) {
     try {
       setInstallmentsLoading(true);
       const token = await AsyncStorage.getItem('token');
+      console.log('Fetching installments for member ID:', initialMember._id);
       const response = await axios.get(`${API_URL}/installments/member/${initialMember._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
