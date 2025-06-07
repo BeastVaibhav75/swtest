@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
-import { Alert, FlatList, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
 import { expensesAPI, loansAPI } from '../../services/api';
@@ -15,6 +15,7 @@ export default function ActivitiesScreen({ route }) {
   const [editAmount, setEditAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   // Format date to yyyy-mm-dd
   const formatDate = (date) => date.toISOString().slice(0, 10);
@@ -114,6 +115,13 @@ export default function ActivitiesScreen({ route }) {
     if (date) setSelectedDate(date);
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setSelectedDate(new Date()); // Reset to current date
+    setActivitiesState(allActivities); // Re-filter based on initial data
+    setRefreshing(false);
+  }, [allActivities]);
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -139,6 +147,9 @@ export default function ActivitiesScreen({ route }) {
           <View style={styles.emptyContainer}>
             <Text style={styles.empty}>No activities for {selectedDate.toLocaleDateString()}</Text>
           </View>
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
 

@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 
 // Admin Screens
+import AboutScreen from '../screens/admin/AboutScreen';
 import ActivitiesScreen from '../screens/admin/ActivitiesScreen';
 import AddMember from '../screens/admin/AddMember';
 import AdminDashboard from '../screens/admin/AdminDashboard';
@@ -86,6 +87,7 @@ const SettingsStack = () => (
     <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ManageMembers" component={ManageMembers} options={{ headerShown: false }} />
     <Stack.Screen name="AddMember" component={AddMember} options={{ headerShown: false }} />
+    <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 

@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
-    View,
+    View
 } from 'react-native';
+import { fundAPI } from '../../services/api';
 
 // Mock data for testing
 const mockFundData = {
@@ -37,16 +40,58 @@ const mockFundData = {
 };
 
 export default function FundScreen() {
-  const { totalFund, activeLoans, availableFund, recentTransactions } = mockFundData;
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fundData, setFundData] = useState({
+    totalFund: 0,
+    activeLoans: 0,
+    availableFund: 0,
+    recentTransactions: []
+  });
+
+  const fetchFundData = async () => {
+    try {
+      setLoading(true);
+      const [fundRes, transactionsRes] = await Promise.all([
+        fundAPI.getFundSummary(),
+        fundAPI.getRecentTransactions()
+      ]);
+
+      setFundData({
+        totalFund: fundRes.data?.totalFund || 0,
+        activeLoans: fundRes.data?.activeLoans || 0,
+        availableFund: fundRes.data?.availableFund || 0,
+        recentTransactions: transactionsRes.data || []
+      });
+    } catch (error) {
+      console.error('Error fetching fund data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchFundData();
+  }, []);
+
+  React.useEffect(() => {
+    fetchFundData();
+  }, []);
+
+  const { totalFund, activeLoans, availableFund, recentTransactions } = fundData;
 
   const renderTransaction = (transaction) => (
-    <View key={transaction.id} style={styles.transactionItem}>
+    <View key={transaction._id} style={styles.transactionItem}>
       <View style={styles.transactionInfo}>
         <Text style={styles.transactionType}>
           {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
         </Text>
-        <Text style={styles.transactionMember}>{transaction.member}</Text>
-        <Text style={styles.transactionDate}>{transaction.date}</Text>
+        <Text style={styles.transactionMember}>{transaction.memberName}</Text>
+        <Text style={styles.transactionDate}>
+          {new Date(transaction.date).toLocaleDateString()}
+        </Text>
       </View>
       <Text style={[
         styles.transactionAmount,
@@ -57,8 +102,25 @@ export default function FundScreen() {
     </View>
   );
 
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#007AFF']}
+        />
+      }
+    >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Fund Summary</Text>
         <View style={styles.summaryItem}>
@@ -77,7 +139,11 @@ export default function FundScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
-        {recentTransactions.map(renderTransaction)}
+        {recentTransactions.length === 0 ? (
+          <Text style={styles.noData}>No recent transactions</Text>
+        ) : (
+          recentTransactions.map(renderTransaction)
+        )}
       </View>
     </ScrollView>
   );
@@ -87,6 +153,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
     backgroundColor: 'white',
@@ -156,5 +227,12 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  noData: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 20,
   },
 }); 

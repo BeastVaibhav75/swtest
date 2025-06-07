@@ -15,7 +15,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.developerv.swanidhi"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,6 +33,14 @@
         "projectId": "6b06e31b-8a74-40f8-afd5-475400e7b84f"
       }
     },
-    "owner": "vaibhav_75"
+    "owner": "vaibhav_75",
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/6b06e31b-8a74-40f8-afd5-475400e7b84f"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
   }
 }

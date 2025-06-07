@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
-    View,
+    View
 } from 'react-native';
+import { fundAPI } from '../../services/api';
 
 // Mock data for testing
 const mockInterestData = {
@@ -37,32 +40,91 @@ const mockInterestData = {
 };
 
 export default function InterestDistributionScreen() {
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [interestData, setInterestData] = useState({
+    totalInterestEarned: 0,
+    totalMembers: 0,
+    interestPerMember: 0,
+    distributionHistory: []
+  });
+
+  const fetchInterestData = async () => {
+    try {
+      setLoading(true);
+      const [interestRes, membersRes] = await Promise.all([
+        fundAPI.getInterestDistribution(),
+        fundAPI.getMembers()
+      ]);
+
+      setInterestData({
+        totalInterestEarned: interestRes.data?.totalInterest || 0,
+        totalMembers: membersRes.data?.length || 0,
+        interestPerMember: interestRes.data?.interestPerMember || 0,
+        distributionHistory: interestRes.data?.distributions || []
+      });
+    } catch (error) {
+      console.error('Error fetching interest data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchInterestData();
+  }, []);
+
+  React.useEffect(() => {
+    fetchInterestData();
+  }, []);
+
   const {
     totalInterestEarned,
     totalMembers,
     interestPerMember,
     distributionHistory,
-  } = mockInterestData;
+  } = interestData;
 
   const renderDistributionItem = (item) => (
-    <View key={item.id} style={styles.distributionItem}>
+    <View key={item._id} style={styles.distributionItem}>
       <View style={styles.distributionHeader}>
-        <Text style={styles.distributionMonth}>{item.month}</Text>
-        <Text style={styles.distributionAmount}>₹{item.totalInterest}</Text>
+        <Text style={styles.distributionMonth}>
+          {new Date(item.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </Text>
+        <Text style={styles.distributionAmount}>₹{item.totalAmount}</Text>
       </View>
       <View style={styles.distributionDetails}>
         <Text style={styles.distributionDetail}>
           Distributed to {item.distributedTo} members
         </Text>
         <Text style={styles.distributionDetail}>
-          ₹{item.amountPerMember} per member
+          ₹{item.perMemberAmount} per member
         </Text>
       </View>
     </View>
   );
 
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#007AFF']}
+        />
+      }
+    >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Interest Distribution Summary</Text>
         <View style={styles.summaryItem}>
@@ -81,7 +143,11 @@ export default function InterestDistributionScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Distribution History</Text>
-        {distributionHistory.map(renderDistributionItem)}
+        {distributionHistory.length === 0 ? (
+          <Text style={styles.noData}>No distribution history available</Text>
+        ) : (
+          distributionHistory.map(renderDistributionItem)
+        )}
       </View>
     </ScrollView>
   );
@@ -91,6 +157,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
     backgroundColor: 'white',
@@ -156,5 +227,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 2,
+  },
+  noData: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 20,
   },
 }); 

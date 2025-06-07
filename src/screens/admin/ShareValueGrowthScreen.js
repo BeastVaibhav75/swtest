@@ -1,10 +1,71 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { fundAPI } from '../../services/api';
 
 export default function ShareValueGrowthScreen({ navigation }) {
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [shareData, setShareData] = useState({
+    currentValue: 0,
+    growthPercentage: 0,
+    history: []
+  });
+
+  const fetchShareData = async () => {
+    try {
+      setLoading(true);
+      const shareValueRes = await fundAPI.getShareValue();
+      
+      setShareData({
+        currentValue: shareValueRes.data?.shareValue || 0,
+        growthPercentage: shareValueRes.data?.growthPercentage || 0,
+        history: shareValueRes.data?.history || []
+      });
+    } catch (error) {
+      console.error('Error fetching share value data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchShareData();
+  }, []);
+
+  React.useEffect(() => {
+    fetchShareData();
+  }, []);
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#007AFF']}
+        />
+      }
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={28} color="#007AFF" />
@@ -13,17 +74,29 @@ export default function ShareValueGrowthScreen({ navigation }) {
       </View>
       <View style={styles.valueSection}>
         <Text style={styles.valueText}>
-          ₹5000 <Text style={styles.growthText}>+50%</Text>
+          ₹{shareData.currentValue.toFixed(2)} 
+          <Text style={[
+            styles.growthText,
+            { color: shareData.growthPercentage >= 0 ? '#34C759' : '#FF3B30' }
+          ]}>
+            {shareData.growthPercentage >= 0 ? '+' : ''}{shareData.growthPercentage}%
+          </Text>
         </Text>
         <Text style={styles.valueLabel}>Current Share Value</Text>
       </View>
       <View style={styles.graphSection}>
         <Text style={styles.graphLabel}>Growth Graph (Monthly/Yearly)</Text>
-        <View style={styles.graphPlaceholder}>
-          <Text style={styles.graphPlaceholderText}>[Graph Placeholder]</Text>
-        </View>
+        {shareData.history.length === 0 ? (
+          <View style={styles.graphPlaceholder}>
+            <Text style={styles.graphPlaceholderText}>No data available</Text>
+          </View>
+        ) : (
+          <View style={styles.graphPlaceholder}>
+            <Text style={styles.graphPlaceholderText}>[Graph Placeholder]</Text>
+          </View>
+        )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -32,6 +105,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     marginTop: 30,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -58,7 +136,6 @@ const styles = StyleSheet.create({
   },
   growthText: {
     fontSize: 18,
-    color: '#34C759',
     fontWeight: 'bold',
     textAlignVertical: 'top',
   },

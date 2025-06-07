@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -18,7 +18,7 @@ export default function ManageMembers({ navigation }) {
   const [adminPassword, setAdminPassword] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await membersAPI.getAll();
@@ -30,7 +30,7 @@ export default function ManageMembers({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handlePauseMember = async (memberId) => {
     Alert.alert(

@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -55,7 +55,7 @@ export default function SettingsScreen({ navigation }) {
         // Handle app settings
         break;
       case 'about':
-        // Show about information
+        navigation.navigate('About');
         break;
       default:
         break;

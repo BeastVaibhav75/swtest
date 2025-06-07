@@ -1,6 +1,6 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useApi } from '../hooks/useApi';
 import { installmentsAPI, loansAPI } from '../services/api';
 
@@ -8,9 +8,16 @@ const MemberDetailScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { member } = route.params;
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: loans, loading: loansLoading, error: loansError, execute: fetchLoans } = useApi(() => loansAPI.getByMember(member._id));
   const { data: installments, loading: installmentsLoading, error: installmentsError, execute: fetchInstallments } = useApi(() => installmentsAPI.getByMember(member._id));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchLoans(), fetchInstallments()]);
+    setRefreshing(false);
+  }, [fetchLoans, fetchInstallments]);
 
   useEffect(() => {
     fetchLoans();
@@ -58,7 +65,16 @@ const MemberDetailScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#007AFF']}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.name}>{member.name}</Text>
         <Text style={styles.memberId}>ID: {member.memberId}</Text>

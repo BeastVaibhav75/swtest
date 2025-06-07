@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Modal,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -56,6 +57,7 @@ export default function ReportsScreen({ navigation }) {
   const [viewType, setViewType] = useState(null); // null, 'overall', 'individual', 'collective'
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchReportData();
@@ -91,8 +93,15 @@ export default function ReportsScreen({ navigation }) {
       console.error('Error fetching report data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchReportData();
+    setRefreshing(false);
+  }, [fetchReportData]);
 
   const handleViewTypeSelect = (type) => {
     setViewType(type);
@@ -251,7 +260,15 @@ export default function ReportsScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+        />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Reports</Text>
       </View>

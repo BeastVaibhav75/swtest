@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -1385,6 +1386,11 @@ export default function ReportDetail({ route, navigation }) {
     );
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchReportDetail().finally(() => setRefreshing(false));
+  }, []);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -1407,7 +1413,17 @@ export default function ReportDetail({ route, navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#007AFF']}
+          tintColor="#007AFF"
+        />
+      }
+    >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={24} color="#007AFF" />

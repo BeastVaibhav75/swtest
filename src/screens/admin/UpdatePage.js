@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { installmentsAPI, loansAPI, membersAPI } from '../../services/api';
 
@@ -19,19 +19,21 @@ export default function UpdatePage({ navigation }) {
   const [activeLoans, setActiveLoans] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchMembers = async () => {
+    setMembersLoading(true);
+    try {
+      const res = await membersAPI.getAll();
+      setMembers(res.data);
+    } catch (e) {
+      setMembers([]);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchMembers = async () => {
-      setMembersLoading(true);
-      try {
-        const res = await membersAPI.getAll();
-        setMembers(res.data);
-      } catch (e) {
-        setMembers([]);
-      } finally {
-        setMembersLoading(false);
-      }
-    };
     fetchMembers();
   }, []);
 
@@ -101,7 +103,7 @@ export default function UpdatePage({ navigation }) {
         date: saveDate
       });
 
-      // If member has active loan, update loan repayment
+      // If member has active loan(s), update loan repayment
       if (selectedLoan && loanRepayment) {
         await loansAPI.addRepayment(selectedLoan._id, parseFloat(loanRepayment));
       }
@@ -127,8 +129,27 @@ export default function UpdatePage({ navigation }) {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchMembers();
+    setInstallment('');
+    setInterest('');
+    setLoanRepayment('');
+    setDate('');
+    setSelectedMember(null);
+    setActiveLoans([]);
+    setSelectedLoan(null);
+    setShowLoanModal(false);
+    setRefreshing(false);
+  }, [fetchMembers]);
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={28} color="#007AFF" />
