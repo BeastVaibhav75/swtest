@@ -1,23 +1,15 @@
-import axios from 'axios'; // Import axios
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
-    RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
-
-// For Android Emulator
-// const API_URL = 'http://10.0.2.2:5000/api';
-// For iOS Simulator
-// const API_URL = 'http://localhost:5000/api';
-// For physical device (replace with your computer's IP address)
-const API_URL = 'https://swanidhi-backend.onrender.com/api';
+import { authAPI } from '../../services/api';
 
 export default function ChangePasswordScreen({ navigation }) {
   const { user } = useAuth();
@@ -25,7 +17,6 @@ export default function ChangePasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -45,143 +36,141 @@ export default function ChangePasswordScreen({ navigation }) {
 
     try {
       setLoading(true);
-      await axios.post(`${API_URL}/auth/change-password`, {
+      await authAPI.changePassword({
         memberId: user.memberId,
         currentPassword,
         newPassword,
       });
-
-      Alert.alert(
-        'Success',
-        'Password changed successfully',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-              navigation.goBack();
-            },
+      Alert.alert('Success', 'Password changed successfully', [
+        {
+          text: 'OK',
+          onPress: () => {
+            navigation.goBack();
           },
-        ]
-      );
+        },
+      ]);
     } catch (error) {
-      console.error('Change password error:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to change password'
-      );
+      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
     } finally {
       setLoading(false);
     }
   };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setRefreshing(false);
-  }, []);
-
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="arrow-left" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Change Password</Text>
+      </View>
+
       <View style={styles.form}>
-        <Text style={styles.label}>Current Password</Text>
-        <TextInput
-          style={styles.input}
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          placeholder="Enter current password"
-          secureTextEntry
-          editable={!loading}
-        />
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Current Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter current password"
+            secureTextEntry
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+          />
+        </View>
 
-        <Text style={styles.label}>New Password</Text>
-        <TextInput
-          style={styles.input}
-          value={newPassword}
-          onChangeText={setNewPassword}
-          placeholder="Enter new password"
-          secureTextEntry
-          editable={!loading}
-        />
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>New Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter new password"
+            secureTextEntry
+            value={newPassword}
+            onChangeText={setNewPassword}
+          />
+        </View>
 
-        <Text style={styles.label}>Confirm New Password</Text>
-        <TextInput
-          style={styles.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          placeholder="Confirm new password"
-          secureTextEntry
-          editable={!loading}
-        />
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Confirm New Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm new password"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+        </View>
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleChangePassword}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading ? 'Changing Password...' : 'Change Password'}
-          </Text>
+          {loading ? (
+            <Text style={styles.buttonText}>Updating...</Text>
+          ) : (
+            <Text style={styles.buttonText}>Update Password</Text>
+          )}
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F2F2F7',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
   },
   form: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    padding: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
     color: '#333',
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
     borderRadius: 8,
-    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#E5E5E5',
+    fontSize: 16,
   },
   button: {
     backgroundColor: '#007AFF',
-    padding: 15,
+    padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 16,
   },
   buttonDisabled: {
-    backgroundColor: '#999',
+    opacity: 0.7,
   },
   buttonText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 }); 

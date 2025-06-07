@@ -1,204 +1,196 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import {
     Alert,
-    RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
-import { authAPI } from '../../services/api';
+
+const settingsItems = [
+  {
+    id: '1',
+    title: 'Change Password',
+    icon: 'lock',
+    color: '#007AFF',
+    action: 'changePassword',
+  },
+  {
+    id: '2',
+    title: 'Notification Settings',
+    icon: 'bell',
+    color: '#FF9500',
+    action: 'notifications',
+  },
+  {
+    id: '3',
+    title: 'App Settings',
+    icon: 'cog',
+    color: '#8E8E93',
+    action: 'appSettings',
+  },
+  {
+    id: '4',
+    title: 'About',
+    icon: 'information',
+    color: '#34C759',
+    action: 'about',
+  },
+];
 
 export default function MemberSettings({ navigation }) {
   const { logout, user } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
-
-    try {
-      await authAPI.changePassword({
-        memberId: user.memberId,
-        currentPassword,
-        newPassword,
-      });
-      Alert.alert('Success', 'Password changed successfully');
-      setShowPasswordForm(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
+  const handleAction = (action) => {
+    switch (action) {
+      case 'changePassword':
+        navigation.navigate('ChangePassword');
+        break;
+      case 'notifications':
+        // Handle notifications settings
+        break;
+      case 'appSettings':
+        // Handle app settings
+        break;
+      case 'about':
+        navigation.navigate('About');
+        break;
+      default:
+        break;
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to logout');
-    }
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowPasswordForm(false);
-    setRefreshing(false);
-  }, []);
+  const renderSettingItem = (item) => (
+    <TouchableOpacity
+      key={item.id}
+      style={styles.settingItem}
+      onPress={() => handleAction(item.action)}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+        <Icon name={item.icon} size={24} color="#FFFFFF" />
+      </View>
+      <Text style={styles.settingTitle}>{item.title}</Text>
+      <Icon name="chevron-right" size={24} color="#8E8E93" />
+    </TouchableOpacity>
+  );
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.title}>Settings</Text>
       </View>
 
       <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.option}
-          onPress={() => setShowPasswordForm(!showPasswordForm)}
-        >
-          <Text style={styles.optionText}>Change Password</Text>
-        </TouchableOpacity>
-
-        {showPasswordForm && (
-          <View style={styles.passwordForm}>
-            <TextInput
-              style={styles.input}
-              placeholder="Current Password"
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="New Password"
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm New Password"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleChangePassword}
-            >
-              <Text style={styles.buttonText}>Update Password</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.option, styles.logoutOption]}
-          onPress={handleLogout}
-        >
-          <Text style={[styles.optionText, styles.logoutText]}>Logout</Text>
-        </TouchableOpacity>
+        {settingsItems.map(renderSettingItem)}
       </View>
-    </ScrollView>
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Icon name="logout" size={24} color="#FF3B30" />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+
+      <View style={styles.versionContainer}>
+        <Text style={styles.versionText}>Version 1.0.0</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F2F2F7',
+    marginTop: 30,
   },
   header: {
-    padding: 20,
-    backgroundColor: '#007AFF',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
-  headerTitle: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#000000',
   },
   section: {
-    backgroundColor: 'white',
-    margin: 10,
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: '#FFFFFF',
+    marginTop: 8,
   },
-  option: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  passwordForm: {
-    paddingVertical: 15,
-  },
-  input: {
-    backgroundColor: '#f8f8f8',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+  settingItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
-  buttonText: {
-    color: 'white',
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  settingTitle: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: '500',
+    color: '#000000',
   },
-  logoutOption: {
-    borderBottomWidth: 0,
-    marginTop: 10,
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginTop: 8,
+    padding: 16,
   },
   logoutText: {
+    fontSize: 16,
     color: '#FF3B30',
+    marginLeft: 8,
+  },
+  versionContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: 14,
+    color: '#8E8E93',
   },
 }); 
