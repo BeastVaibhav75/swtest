@@ -7,7 +7,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 // For iOS Simulator
 // const API_URL = 'http://localhost:5000/api';
 // For physical device (replace with your computer's IP address)
-const API_URL = 'http://192.168.1.11:5000/api';  // Replace xxx with your computer's IP address
+const API_URL = 'https://swanidhi-backend.onrender.com/api';  // Replace xxx with your computer's IP address
 
 const AuthContext = createContext();
 

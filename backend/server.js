@@ -80,11 +80,15 @@ const createDefaultAdmin = async () => {
 
 createDefaultAdmin();
 
+// At the bottom of your file, replace the existing port definition with:
 const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 const HOST = '0.0.0.0'; // Listen on all network interfaces
 
 app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
   console.log(`Local API URL: http://localhost:${PORT}/api`);
   console.log(`Android Emulator API URL: http://10.0.2.2:${PORT}/api`);
-}); 
+});

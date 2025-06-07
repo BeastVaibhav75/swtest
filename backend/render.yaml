@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: swanidhi-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        value: mongodb+srv://vaibhavsharmavee:9bGMn6faiw5jwCAw@swanidhi.dycrok1.mongodb.net/swanidhi
+      - key: JWT_SECRET
+        sync: false

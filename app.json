@@ -22,15 +22,16 @@
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.swanidhi"
+      "package": "com.developerv.swanidhi"
     },
     "web": {
       "favicon": "./assets/images/logo.png"
     },
     "extra": {
       "eas": {
-        "projectId": "d60cd8c2-f67e-4bcd-ada7-a5990d195439"
+        "projectId": "6b06e31b-8a74-40f8-afd5-475400e7b84f"
       }
-    }
+    },
+    "owner": "vaibhav_75"
   }
 }
