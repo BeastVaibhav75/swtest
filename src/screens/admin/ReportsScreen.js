@@ -1,13 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { Checkbox } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -57,7 +56,6 @@ export default function ReportsScreen({ navigation }) {
   const [viewType, setViewType] = useState(null); // null, 'overall', 'individual', 'collective'
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchReportData();
@@ -93,15 +91,8 @@ export default function ReportsScreen({ navigation }) {
       console.error('Error fetching report data:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchReportData();
-    setRefreshing(false);
-  }, [fetchReportData]);
 
   const handleViewTypeSelect = (type) => {
     setViewType(type);
@@ -260,15 +251,7 @@ export default function ReportsScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
-      }
-    >
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Reports</Text>
       </View>
@@ -321,7 +304,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
-    marginTop: 30,
   },
   loadingContainer: {
     flex: 1,

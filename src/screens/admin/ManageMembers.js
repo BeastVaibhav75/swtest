@@ -314,7 +314,7 @@ export default function ManageMembers({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 24, marginTop: 30 },
+  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 24 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 24, color: '#333' },
   buttonContainer: {
     flexDirection: 'row',
