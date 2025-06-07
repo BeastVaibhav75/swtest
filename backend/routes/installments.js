@@ -27,7 +27,22 @@ const isAdmin = async (req, res, next) => {
 // Get all installments (admin only)
 router.get('/', authenticate, isAdmin, async (req, res) => {
   try {
-    const installments = await Installment.find()
+    const { startDate, endDate } = req.query;
+    const query = {};
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        query.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
+
+    const installments = await Installment.find(query)
       .populate('memberId', 'name memberId')
       .populate('recordedBy', 'name');
     res.json(installments);
@@ -39,7 +54,22 @@ router.get('/', authenticate, isAdmin, async (req, res) => {
 // Get installments for a specific member (admin only)
 router.get('/member/:memberId', authenticate, isAdmin, async (req, res) => {
   try {
-    const installments = await Installment.find({ memberId: req.params.memberId })
+    const { startDate, endDate } = req.query;
+    const query = { memberId: req.params.memberId };
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        query.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
+
+    const installments = await Installment.find(query)
       .populate('memberId', 'name memberId')
       .populate('recordedBy', 'name');
     res.json(installments);
@@ -51,7 +81,22 @@ router.get('/member/:memberId', authenticate, isAdmin, async (req, res) => {
 // Get member's own installments
 router.get('/my-installments', authenticate, async (req, res) => {
   try {
-    const installments = await Installment.find({ memberId: req.user.userId })
+    const { startDate, endDate } = req.query;
+    const query = { memberId: req.user.userId };
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        query.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
+
+    const installments = await Installment.find(query)
       .populate('memberId', 'name memberId')
       .populate('recordedBy', 'name')
       .sort({ date: -1 });

@@ -1,17 +1,18 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { fundAPI, installmentsAPI, loansAPI, membersAPI } from '../../services/api';
@@ -24,10 +25,14 @@ export default function ReportDetail({ route, navigation }) {
   const [members, setMembers] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [allLoans, setAllLoans] = useState([]);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   useEffect(() => {
     fetchReportDetail();
-  }, [reportType, viewType, selectedMemberId, selectedMemberIds]);
+  }, [reportType, viewType, selectedMemberId, selectedMemberIds, startDate, endDate]);
 
   const fetchReportDetail = async () => {
     try {
@@ -40,13 +45,35 @@ export default function ReportDetail({ route, navigation }) {
         setMembers(membersRes.data);
       }
 
+      // Helper function to check if a date is within the selected range
+      const isDateInRange = (date) => {
+        const itemDate = new Date(date);
+        // Set time to midnight for comparison to include the entire day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        return itemDate >= start && itemDate <= end;
+      };
+
+      // Construct date query parameters
+      const dateQueryParams = {};
+      if (startDate) {
+        dateQueryParams.startDate = startDate.toISOString();
+      }
+      if (endDate) {
+        dateQueryParams.endDate = endDate.toISOString();
+      }
+
       switch (reportType) {
         case '1': // Monthly Interest Report
+          // Use the new API endpoint for date range
           const [interestRes, membersRes] = await Promise.all([
-            fundAPI.getTotalInterestThisMonth(),
+            fundAPI.getTotalInterestByRange(startDate.toISOString(), endDate.toISOString()),
             membersAPI.getAll(),
           ]);
-          const totalInterest = interestRes.data?.totalInterestThisMonth || 0;
+          const totalInterest = interestRes.data?.totalInterest || 0; // Get totalInterest from the new API response
           
           if (viewType === 'overall') {
             const perMemberInterest = totalInterest / (membersRes.data.length || 1);
@@ -56,17 +83,23 @@ export default function ReportDetail({ route, navigation }) {
               perMemberAmount: perMemberInterest,
               totalMembers: membersRes.data.length,
               date: new Date().toISOString(),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'individual') {
             const member = membersRes.data.find(m => m._id === selectedMemberId);
+            // For individual view, we still use total interest / total members as per the existing logic
             const perMemberInterest = totalInterest / (membersRes.data.length || 1);
             setReportData({
               title: `Monthly Interest Report - ${member?.name || 'Member'}`,
               totalAmount: perMemberInterest,
               date: new Date().toISOString(),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'collective') {
             const selectedMembers = membersRes.data.filter(m => selectedMemberIds.includes(m._id));
+             // For collective view, we still use total interest / total members * selected members as per the existing logic
             const perMemberInterest = totalInterest / (membersRes.data.length || 1);
             const totalSelectedInterest = perMemberInterest * selectedMembers.length;
             setReportData({
@@ -79,12 +112,14 @@ export default function ReportDetail({ route, navigation }) {
                 amount: perMemberInterest,
               })),
               date: new Date().toISOString(),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           }
           break;
 
-        case '2': // Loan Status Report
-          const loansRes = await loansAPI.getAll();
+        case '2': // Loan Status Report (No date filtering on loans API)
+          const loansRes = await loansAPI.getAll(); // No date params needed for this API call
           let relevantLoans = [];
           
           if (viewType === 'individual') {
@@ -100,7 +135,7 @@ export default function ReportDetail({ route, navigation }) {
           if (relevantLoans.length === 0) {
             setReportData({
               title: viewType === 'individual' 
-                ? `Loan Status Report - ${members.find(m => m._id === selectedMemberId)?.name || 'Member'}`
+                ? `Loan Status Report - ${members.find(m => m._id === selectedMemberId)?.name || 'Unknown'}`
                 : 'Loan Status Report',
               noLoans: true,
               message: 'No loans found for the selected member(s)'
@@ -114,43 +149,83 @@ export default function ReportDetail({ route, navigation }) {
           break;
 
         case '3': // Member Activity Report
+          // Fetch members, and filter loans and installments by date range using the updated APIs
           const [allMembers, allLoans, allInstallments] = await Promise.all([
             membersAPI.getAll(),
-            loansAPI.getAll(),
-            installmentsAPI.getAll(),
+            loansAPI.getAll(dateQueryParams), // Pass date params to loans API (if applicable, though filtering is by activity date)
+            installmentsAPI.getAll(dateQueryParams), // Pass date params to installments API
           ]);
+
+          // Filter loans and installments based on the response from the date-aware APIs
+          // No need for isDateInRange check here if the APIs handle filtering
+          const filteredLoans = allLoans.data;
+          const filteredInstallments = allInstallments.data;
 
           if (viewType === 'overall') {
             const memberActivity = allMembers.data.map(member => {
-              const memberLoans = allLoans.data.filter(loan => loan.memberId?._id === member._id);
-              const memberInstallments = allInstallments.data.filter(inst => inst.memberId?._id === member._id);
+              // Filter already filtered data by member ID
+              const memberLoans = filteredLoans.filter(loan => loan.memberId?._id === member._id);
+              const memberInstallments = filteredInstallments.filter(inst => inst.memberId?._id === member._id);
+              
+              // Find last activity within the filtered range
+              let lastActivity = null;
+              const lastLoanDate = memberLoans.length > 0 ? new Date(Math.max(...memberLoans.map(l => new Date(l.date)))) : null;
+              const lastInstallmentDate = memberInstallments.length > 0 ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date)))) : null;
+
+              if (lastLoanDate && lastInstallmentDate) {
+                  lastActivity = new Date(Math.max(lastLoanDate, lastInstallmentDate));
+              } else if (lastLoanDate) {
+                  lastActivity = lastLoanDate;
+              } else if (lastInstallmentDate) {
+                  lastActivity = lastInstallmentDate;
+              }
+
               return {
                 name: member.name,
                 memberId: member.memberId,
                 activeLoans: memberLoans.filter(loan => loan.status === 'active').length,
                 totalInstallments: memberInstallments.length,
-                lastActivity: memberInstallments.length > 0 
-                  ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date))))
-                  : null,
+                lastActivity: lastActivity,
               };
             });
+
+            // Filter members who had activity within the date range
+             const activeMembersInRange = memberActivity.filter(m => 
+                (m.activeLoans > 0 || m.totalInstallments > 0 || (m.lastActivity && isDateInRange(m.lastActivity)))
+            );
+
             setReportData({
               title: 'Member Activity Report',
               totalMembers: allMembers.data.length,
-              activeMembers: memberActivity.filter(m => m.activeLoans > 0 || m.totalInstallments > 0).length,
-              members: memberActivity,
+              activeMembers: activeMembersInRange.length,
+              members: activeMembersInRange, // Only include members with activity in range for overall view
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'individual') {
             const member = allMembers.data.find(m => m._id === selectedMemberId);
-            const memberLoans = allLoans.data.filter(loan => loan.memberId?._id === selectedMemberId);
-            const memberInstallments = allInstallments.data.filter(inst => inst.memberId?._id === selectedMemberId);
+             // Filter already filtered data by member ID
+            const memberLoans = filteredLoans.filter(loan => loan.memberId?._id === selectedMemberId);
+            const memberInstallments = filteredInstallments.filter(inst => inst.memberId?._id === selectedMemberId);
+
+             // Find last activity within the filtered range
+              let lastActivity = null;
+              const lastLoanDate = memberLoans.length > 0 ? new Date(Math.max(...memberLoans.map(l => new Date(l.date)))) : null;
+              const lastInstallmentDate = memberInstallments.length > 0 ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date)))) : null;
+
+              if (lastLoanDate && lastInstallmentDate) {
+                  lastActivity = new Date(Math.max(lastLoanDate, lastInstallmentDate));
+              } else if (lastLoanDate) {
+                  lastActivity = lastLoanDate;
+              } else if (lastInstallmentDate) {
+                  lastActivity = lastInstallmentDate;
+              }
+
             setReportData({
               title: `Member Activity Report - ${member?.name || 'Member'}`,
               activeLoans: memberLoans.filter(loan => loan.status === 'active').length,
               totalInstallments: memberInstallments.length,
-              lastActivity: memberInstallments.length > 0 
-                ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date))))
-                : null,
+              lastActivity: lastActivity,
               loans: memberLoans.map(loan => ({
                 amount: loan.amount,
                 outstanding: loan.outstanding,
@@ -160,54 +235,74 @@ export default function ReportDetail({ route, navigation }) {
                 amount: inst.amount,
                 date: inst.date,
               })),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'collective') {
             const selectedMemberActivity = allMembers.data
               .filter(member => selectedMemberIds.includes(member._id))
               .map(member => {
-                const memberLoans = allLoans.data.filter(loan => loan.memberId?._id === member._id);
-                const memberInstallments = allInstallments.data.filter(inst => inst.memberId?._id === member._id);
+                // Filter already filtered data by member ID
+                const memberLoans = filteredLoans.filter(loan => loan.memberId?._id === member._id);
+                const memberInstallments = filteredInstallments.filter(inst => inst.memberId?._id === member._id);
+                 // Find last activity within the filtered range
+                let lastActivity = null;
+                const lastLoanDate = memberLoans.length > 0 ? new Date(Math.max(...memberLoans.map(l => new Date(l.date)))) : null;
+                const lastInstallmentDate = memberInstallments.length > 0 ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date)))) : null;
+  
+                if (lastLoanDate && lastInstallmentDate) {
+                    lastActivity = new Date(Math.max(lastLoanDate, lastInstallmentDate));
+                } else if (lastLoanDate) {
+                    lastActivity = lastLoanDate;
+                } else if (lastInstallmentDate) {
+                    lastActivity = lastInstallmentDate;
+                }
                 return {
                   name: member.name,
                   memberId: member.memberId,
                   activeLoans: memberLoans.filter(loan => loan.status === 'active').length,
                   totalInstallments: memberInstallments.length,
-                  lastActivity: memberInstallments.length > 0 
-                    ? new Date(Math.max(...memberInstallments.map(i => new Date(i.date))))
-                    : null,
+                  lastActivity: lastActivity,
                 };
               });
+             // Filter members who had activity within the date range for collective view
+            const activeSelectedMembersInRange = selectedMemberActivity.filter(m => 
+                (m.activeLoans > 0 || m.totalInstallments > 0 || (m.lastActivity && isDateInRange(m.lastActivity)))
+            );
             setReportData({
               title: 'Member Activity Report - Selected Members',
-              totalMembers: selectedMemberActivity.length,
-              activeMembers: selectedMemberActivity.filter(m => m.activeLoans > 0 || m.totalInstallments > 0).length,
-              members: selectedMemberActivity,
+              totalMembers: selectedMemberIds.length, // Total selected members count
+              activeMembers: activeSelectedMembersInRange.length, // Count of selected members with activity in range
+              members: activeSelectedMembersInRange, // Only include selected members with activity in range
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           }
           break;
 
         case '4': // Installment Collection Report
-          const installmentsRes = await installmentsAPI.getAll();
-          const today = new Date();
-          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-          const thisMonthInstallments = installmentsRes.data.filter(inst => 
-            new Date(inst.date) >= firstDayOfMonth && new Date(inst.date) <= today
-          );
+          // Fetch installments filtered by date range using the updated API
+          const installmentsRes = await installmentsAPI.getAll(dateQueryParams); // Pass date params
+          
+          // Data is already filtered by the API
+          const filteredInstallmentsCollection = installmentsRes.data;
 
           if (viewType === 'overall') {
-            const totalCollection = thisMonthInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+            const totalCollection = filteredInstallmentsCollection.reduce((sum, inst) => sum + inst.amount, 0);
             setReportData({
               title: 'Installment Collection Report',
               totalCollection,
-              totalInstallments: thisMonthInstallments.length,
-              installments: thisMonthInstallments.map(inst => ({
+              totalInstallments: filteredInstallmentsCollection.length,
+              installments: filteredInstallmentsCollection.map(inst => ({
                 memberName: inst.memberId?.name || 'Unknown',
                 amount: inst.amount,
                 date: inst.date,
               })),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'individual') {
-            const memberInstallments = thisMonthInstallments.filter(inst => inst.memberId?._id === selectedMemberId);
+            const memberInstallments = filteredInstallmentsCollection.filter(inst => inst.memberId?._id === selectedMemberId);
             const totalCollection = memberInstallments.reduce((sum, inst) => sum + inst.amount, 0);
             setReportData({
               title: `Installment Collection Report - ${members.find(m => m._id === selectedMemberId)?.name || 'Member'}`,
@@ -217,9 +312,11 @@ export default function ReportDetail({ route, navigation }) {
                 amount: inst.amount,
                 date: inst.date,
               })),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           } else if (viewType === 'collective') {
-            const selectedMemberInstallments = thisMonthInstallments.filter(inst => 
+            const selectedMemberInstallments = filteredInstallmentsCollection.filter(inst => 
               selectedMemberIds.includes(inst.memberId?._id)
             );
             const totalCollection = selectedMemberInstallments.reduce((sum, inst) => sum + inst.amount, 0);
@@ -232,6 +329,8 @@ export default function ReportDetail({ route, navigation }) {
                 amount: inst.amount,
                 date: inst.date,
               })),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
             });
           }
           break;
@@ -295,8 +394,10 @@ export default function ReportDetail({ route, navigation }) {
 
       const loanData = {
         title: viewType === 'individual' 
-          ? `Loan Status Report - ${members.find(m => m._id === selectedMemberId)?.name || 'Member'}`
-          : 'Loan Status Report',
+          ? `Loan Status Report - ${loan.memberId?.name || 'Unknown'}`
+          : viewType === 'collective'
+            ? 'Loan Status Report - Selected Members'
+            : 'Loan Status Report',
         loanDetails: {
           memberName: loan.memberId?.name || 'Unknown',
           memberId: loan.memberId?.memberId || 'N/A',
@@ -334,6 +435,25 @@ export default function ReportDetail({ route, navigation }) {
     updateReportData(selected);
   };
 
+  const onDateChange = (event, selectedDate, type) => {
+    const currentDate = selectedDate || new Date();
+    if (type === 'start') {
+      setShowStartDatePicker(Platform.OS === 'ios');
+      setStartDate(currentDate);
+    } else {
+      setShowEndDatePicker(Platform.OS === 'ios');
+      setEndDate(currentDate);
+    }
+  };
+
+  const showDatePicker = (type) => {
+    if (type === 'start') {
+      setShowStartDatePicker(true);
+    } else {
+      setShowEndDatePicker(true);
+    }
+  };
+
   const generatePDF = async () => {
     try {
       setLoading(true);
@@ -357,25 +477,14 @@ export default function ReportDetail({ route, navigation }) {
           throw new Error('Invalid report type');
       }
 
-      // Check if we're in development (Expo Go) or production
-      if (__DEV__) {
-        // Development mode - use HTML sharing
-        const fileName = `Report_${new Date().getTime()}.html`;
-        const filePath = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(filePath, htmlContent, {
-          encoding: FileSystem.EncodingType.UTF8
-        });
-        return { filePath, isHtml: true };
-      } else {
-        // Production mode - generate PDF
-        const { uri } = await Print.printToFileAsync({
-          html: htmlContent,
-          width: 612, // US Letter width in points
-          height: 792, // US Letter height in points
-          base64: false
-        });
-        return { filePath: uri, isHtml: false };
-      }
+      // Always generate PDF
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        width: 612, // US Letter width in points
+        height: 792, // US Letter height in points
+        base64: false
+      });
+      return { filePath: uri, isHtml: false };
     } catch (error) {
       console.error('Report Generation Error:', error);
       Alert.alert('Error', 'Failed to generate report: ' + error.message);
@@ -451,6 +560,10 @@ export default function ReportDetail({ route, navigation }) {
   };
 
   const generateMonthlyInterestPDF = () => {
+    const reportStartDate = reportData.startDate ? new Date(reportData.startDate).toLocaleDateString() : 'N/A';
+    const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
+    const generatedDate = new Date().toLocaleDateString();
+
     return `
       <html>
         <head>
@@ -459,30 +572,71 @@ export default function ReportDetail({ route, navigation }) {
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .summary { margin-bottom: 20px; }
+            .app-header { 
+                position: relative; /* Use relative positioning for containing absolute children */
+                height: 60px; /* Give the header a defined height */
+                margin-bottom: 20px; 
+                padding-bottom: 10px; 
+                border-bottom: 1px solid #ccc; 
+            }
+            .app-logo { 
+                position: absolute; 
+                left: 0; top: 0;
+                height: 50px; 
+                /* margin-right: 10px; */ /* Remove margin since we are using absolute positioning */
+            }
+            .app-name { 
+                position: absolute; 
+                left: 60px; /* Position next to logo */
+                top: 10px; /* Adjust vertical alignment */
+                font-size: 24px; 
+                font-weight: bold; 
+                color: #007AFF; 
+                margin: 0; 
+            }
+            .report-title { 
+                font-size: 20px; 
+                text-align: center; 
+                margin: 10px 0; 
+                margin-top: 60px; /* Add margin to push content below absolute header */
+            }
+            .report-date { 
+                font-size: 14px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
+            .date-range { 
+                font-size: 12px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${reportData.title}</h1>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <div class="app-header">
+            <img src="assets/images/logo.png" class="app-logo" />
+            <h1 class="app-name">Swanidhi</h1>
           </div>
+          <h2 class="report-title">${reportData.title}</h2>
+          <p class="report-date">Generated on: ${generatedDate}</p>
+          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
           <div class="summary">
             <h2>Summary</h2>
             <table>
               <tr>
                 <th>Total Interest</th>
-                <td>₹${reportData.totalAmount.toFixed(2)}</td>
+                <td>₹{reportData.totalAmount.toFixed(2)}</td>
               </tr>
               ${viewType !== 'individual' ? `
                 <tr>
                   <th>Per Member</th>
-                  <td>₹${reportData.perMemberAmount.toFixed(2)}</td>
+                  <td>₹{reportData.perMemberAmount.toFixed(2)}</td>
                 </tr>
                 <tr>
                   <th>Total Members</th>
-                  <td>${reportData.totalMembers}</td>
+                  <td>{reportData.totalMembers}</td>
                 </tr>
               ` : ''}
             </table>
@@ -496,8 +650,8 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
               ${reportData.members.map(member => `
                 <tr>
-                  <td>${member.name}</td>
-                  <td>₹${member.amount.toFixed(2)}</td>
+                  <td>{member.name}</td>
+                  <td>₹{member.amount.toFixed(2)}</td>
                 </tr>
               `).join('')}
             </table>
@@ -509,15 +663,35 @@ export default function ReportDetail({ route, navigation }) {
 
   const generateLoanStatusPDF = () => {
     if (!reportData || reportData.noLoans) {
+      const generatedDate = new Date().toLocaleDateString();
       return `
         <html>
+          <head>
+            <style>
+              body { font-family: Arial; }
+              .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+              .app-logo { height: 50px; margin-right: 10px; }
+              .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
+              .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
+              .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+            </style>
+          </head>
           <body>
-            <h1>${reportData.title}</h1>
+            <div class="app-header">
+              <img src="assets/images/logo.png" class="app-logo" />
+              <h1 class="app-name">Swanidhi</h1>
+            </div>
+            <h2 class="report-title">${reportData.title}</h2>
+            <p class="report-date">Generated on: ${generatedDate}</p>
             <p>${reportData.message}</p>
           </body>
         </html>
       `;
     }
+
+    const reportStartDate = reportData.startDate ? new Date(reportData.startDate).toLocaleDateString() : 'N/A';
+    const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
+    const generatedDate = new Date().toLocaleDateString();
 
     return `
       <html>
@@ -529,13 +703,27 @@ export default function ReportDetail({ route, navigation }) {
             th { background-color: #f5f5f5; }
             .header { text-align: center; margin-bottom: 20px; }
             .section { margin-bottom: 20px; }
+            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+            .app-logo { height: 50px; margin-right: 10px; }
+            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
+            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
+            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+            .date-range { 
+                font-size: 12px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${reportData.title}</h1>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <div class="app-header">
+            <img src="assets/images/logo.png" class="app-logo" />
+            <h1 class="app-name">Swanidhi</h1>
           </div>
+          <h2 class="report-title">${reportData.title}</h2>
+          <p class="report-date">Generated on: ${generatedDate}</p>
+          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
 
           <div class="section">
             <h2>Member Information</h2>
@@ -616,12 +804,32 @@ export default function ReportDetail({ route, navigation }) {
               `).join('')}
             </table>
           </div>
+
+          <div class="section">
+            <h2>Important Dates</h2>
+            <table>
+              <tr>
+                <th>Start Date</th>
+                <td>${new Date(reportData.loanDetails.date).toLocaleDateString()}</td>
+              </tr>
+              ${reportData.loanDetails.status === 'completed' ? `
+                <tr>
+                  <th>Completion Date</th>
+                  <td>${new Date(reportData.loanDetails.completionDate).toLocaleDateString()}</td>
+                </tr>
+              ` : ''}
+            </table>
+          </div>
         </body>
       </html>
     `;
   };
 
   const generateMemberActivityPDF = () => {
+    const reportStartDate = reportData.startDate ? new Date(reportData.startDate).toLocaleDateString() : 'N/A';
+    const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
+    const generatedDate = new Date().toLocaleDateString();
+
     return `
       <html>
         <head>
@@ -632,13 +840,27 @@ export default function ReportDetail({ route, navigation }) {
             th { background-color: #f5f5f5; }
             .header { text-align: center; margin-bottom: 20px; }
             .section { margin-bottom: 20px; }
+            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+            .app-logo { height: 50px; margin-right: 10px; }
+            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
+            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
+            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+            .date-range { 
+                font-size: 12px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${reportData.title}</h1>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <div class="app-header">
+            <img src="assets/images/logo.png" class="app-logo" />
+            <h1 class="app-name">Swanidhi</h1>
           </div>
+          <h2 class="report-title">${reportData.title}</h2>
+          <p class="report-date">Generated on: ${generatedDate}</p>
+          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
 
           <div class="section">
             <h2>Summary</h2>
@@ -646,25 +868,25 @@ export default function ReportDetail({ route, navigation }) {
               ${viewType !== 'individual' ? `
                 <tr>
                   <th>Total Members</th>
-                  <td>${reportData.totalMembers}</td>
+                  <td>{reportData.totalMembers}</td>
                 </tr>
                 <tr>
                   <th>Active Members</th>
-                  <td>${reportData.activeMembers}</td>
+                  <td>{reportData.activeMembers}</td>
                 </tr>
               ` : `
                 <tr>
                   <th>Active Loans</th>
-                  <td>${reportData.activeLoans}</td>
+                  <td>{reportData.activeLoans}</td>
                 </tr>
                 <tr>
                   <th>Total Installments</th>
-                  <td>${reportData.totalInstallments}</td>
+                  <td>{reportData.totalInstallments}</td>
                 </tr>
                 ${reportData.lastActivity ? `
                   <tr>
                     <th>Last Activity</th>
-                    <td>${new Date(reportData.lastActivity).toLocaleDateString()}</td>
+                    <td>{new Date(reportData.lastActivity).toLocaleDateString()}</td>
                   </tr>
                 ` : ''}
               `}
@@ -684,11 +906,11 @@ export default function ReportDetail({ route, navigation }) {
                 </tr>
                 ${reportData.members.map(member => `
                   <tr>
-                    <td>${member.name}</td>
-                    <td>${member.memberId}</td>
-                    <td>${member.activeLoans}</td>
-                    <td>${member.totalInstallments}</td>
-                    <td>${member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : '-'}</td>
+                    <td>{member.name}</td>
+                    <td>{member.memberId}</td>
+                    <td>{member.activeLoans}</td>
+                    <td>{member.totalInstallments}</td>
+                    <td>{member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : '-'}</td>
                   </tr>
                 `).join('')}
               </table>
@@ -704,9 +926,9 @@ export default function ReportDetail({ route, navigation }) {
                 </tr>
                 ${reportData.loans.map(loan => `
                   <tr>
-                    <td>₹${loan.amount.toFixed(2)}</td>
-                    <td>₹${loan.outstanding.toFixed(2)}</td>
-                    <td>${new Date(loan.date).toLocaleDateString()}</td>
+                    <td>₹{loan.amount.toFixed(2)}</td>
+                    <td>₹{loan.outstanding.toFixed(2)}</td>
+                    <td>{new Date(loan.date).toLocaleDateString()}</td>
                   </tr>
                 `).join('')}
               </table>
@@ -721,8 +943,8 @@ export default function ReportDetail({ route, navigation }) {
                 </tr>
                 ${reportData.installments.map(inst => `
                   <tr>
-                    <td>₹${inst.amount.toFixed(2)}</td>
-                    <td>${new Date(inst.date).toLocaleDateString()}</td>
+                    <td>₹{inst.amount.toFixed(2)}</td>
+                    <td>{new Date(inst.date).toLocaleDateString()}</td>
                   </tr>
                 `).join('')}
               </table>
@@ -734,6 +956,10 @@ export default function ReportDetail({ route, navigation }) {
   };
 
   const generateInstallmentCollectionPDF = () => {
+    const reportStartDate = reportData.startDate ? new Date(reportData.startDate).toLocaleDateString() : 'N/A';
+    const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
+    const generatedDate = new Date().toLocaleDateString();
+
     return `
       <html>
         <head>
@@ -744,24 +970,38 @@ export default function ReportDetail({ route, navigation }) {
             th { background-color: #f5f5f5; }
             .header { text-align: center; margin-bottom: 20px; }
             .section { margin-bottom: 20px; }
+            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
+            .app-logo { height: 50px; margin-right: 10px; }
+            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
+            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
+            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+            .date-range { 
+                font-size: 12px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>${reportData.title}</h1>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <div class="app-header">
+            <img src="assets/images/logo.png" class="app-logo" />
+            <h1 class="app-name">Swanidhi</h1>
           </div>
+          <h2 class="report-title">${reportData.title}</h2>
+          <p class="report-date">Generated on: ${generatedDate}</p>
+          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
 
           <div class="section">
             <h2>Summary</h2>
             <table>
               <tr>
                 <th>Total Collection</th>
-                <td>₹${reportData.totalCollection.toFixed(2)}</td>
+                <td>₹{reportData.totalCollection.toFixed(2)}</td>
               </tr>
               <tr>
                 <th>Total Installments</th>
-                <td>${reportData.totalInstallments}</td>
+                <td>{reportData.totalInstallments}</td>
               </tr>
             </table>
           </div>
@@ -776,9 +1016,9 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
               ${reportData.installments.map(inst => `
                 <tr>
-                  ${viewType !== 'individual' ? `<td>${inst.memberName}</td>` : ''}
-                  <td>₹${inst.amount.toFixed(2)}</td>
-                  <td>${new Date(inst.date).toLocaleDateString()}</td>
+                  ${viewType !== 'individual' ? `<td>{inst.memberName}</td>` : ''}
+                  <td>₹{inst.amount.toFixed(2)}</td>
+                  <td>{new Date(inst.date).toLocaleDateString()}</td>
                 </tr>
               `).join('')}
             </table>
@@ -791,6 +1031,49 @@ export default function ReportDetail({ route, navigation }) {
   const renderReportContent = () => {
     if (!reportData) return null;
 
+    // Conditionally render date range picker for applicable reports
+    const showDatePickers = reportType !== '2';
+
+    return (
+      <View>
+        {showDatePickers && (
+          <View style={styles.dateRangeContainer}>
+            <Text style={styles.sectionTitle}>Select Date Range</Text>
+            <View style={styles.datePickerRow}>
+              <TouchableOpacity onPress={() => showDatePicker('start')} style={styles.datePickerButton}>
+                <Text style={styles.datePickerButtonText}>Start Date: {startDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showStartDatePicker && (
+                <DateTimePicker
+                  testID="startDatePicker"
+                  value={startDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => onDateChange(event, date, 'start')}
+                />
+              )}
+              <TouchableOpacity onPress={() => showDatePicker('end')} style={styles.datePickerButton}>
+                <Text style={styles.datePickerButtonText}>End Date: {endDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showEndDatePicker && (
+                <DateTimePicker
+                  testID="endDatePicker"
+                  value={endDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => onDateChange(event, date, 'end')}
+                />
+              )}
+            </View>
+          </View>
+        )}
+        {renderReportContentInner()}
+      </View>
+    );
+  };
+
+  const renderReportContentInner = () => {
+    if (!reportData) return null;
     switch (reportType) {
       case '1': // Monthly Interest Report
         return (
@@ -821,7 +1104,7 @@ export default function ReportDetail({ route, navigation }) {
                 {reportData.members.map((member, index) => (
                   <View key={index} style={styles.memberItem}>
                     <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.memberAmount}>₹{member.amount.toFixed(2)}</Text>
+                    <Text style={styles.memberAmount}>₹${member.amount.toFixed(2)}</Text>
                   </View>
                 ))}
               </>
@@ -1105,7 +1388,7 @@ export default function ReportDetail({ route, navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Generating PDF...</Text>
+        <Text style={styles.loadingText}>Generating Report...</Text>
       </View>
     );
   }
@@ -1146,7 +1429,7 @@ export default function ReportDetail({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </View>
-      {reportType === '2' ? renderReportContent() : renderReportContent()}
+      {renderReportContent()}
     </ScrollView>
   );
 }
@@ -1204,9 +1487,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   title: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#000000',
+    marginRight: 8,
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -1432,11 +1717,32 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     marginLeft: 'auto',
-    gap: 16, // Add space between buttons
+    gap: 8,
   },
   headerButton: {
     padding: 8,
     borderRadius: 8,
     backgroundColor: '#F2F2F7',
+  },
+  dateRangeContainer: {
+    backgroundColor: '#FFFFFF',
+    margin: 8,
+    padding: 16,
+    borderRadius: 8,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  datePickerButton: {
+    backgroundColor: '#F2F2F7',
+    padding: 10,
+    borderRadius: 8,
+  },
+  datePickerButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

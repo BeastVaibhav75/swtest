@@ -80,6 +80,9 @@ export const fundAPI = {
   getInterest: (memberId) => api.get(`/fund/interest/${memberId}`),
   getTotalInterest: () => api.get('/fund/total-interest'),
   getTotalInterestThisMonth: () => api.get('/fund/total-interest-this-month'),
+  getTotalInterestByRange: (startDate, endDate) => api.get('/fund/total-interest-by-range', {
+    params: { startDate, endDate }
+  }),
   getInvestment: (memberId) => api.get(`/fund/investment/${memberId}`),
 };
 

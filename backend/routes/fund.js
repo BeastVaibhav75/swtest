@@ -127,6 +127,35 @@ router.get('/total-interest-this-month', authenticate, async (req, res) => {
   }
 });
 
+// Get total interest distributed by date range
+router.get('/total-interest-by-range', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const query = { type: 'interest' };
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) {
+        query.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Set the end date to the end of the day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
+      }
+    }
+    
+    const allDistributions = await EarningsDistribution.find(query);
+    
+    const totalInterest = allDistributions.reduce((sum, dist) => sum + dist.totalAmount, 0);
+    res.json({ totalInterest });
+  } catch (error) {
+    console.error('Total interest by range error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get member's investment balance
 router.get('/investment/:memberId', authenticate, async (req, res) => {
   try {

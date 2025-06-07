@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-  Modal,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { Checkbox } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -103,7 +103,7 @@ export default function ReportsScreen({ navigation }) {
 
   const handleReportPress = (reportId) => {
     setSelectedReport(reportId);
-    navigation.navigate('ReportDetail', { 
+    navigation.navigate('ReportDetail', {
       reportType: reportId,
       viewType,
       selectedMemberId: viewType === 'individual' ? selectedMember?._id : null,
@@ -260,29 +260,29 @@ export default function ReportsScreen({ navigation }) {
         renderViewTypeSelector()
       ) : (
         <>
-      {/* Quick Stats Section */}
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Quick Stats</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.totalMembers}</Text>
-            <Text style={styles.statLabel}>Total Members</Text>
+          {/* Quick Stats Section */}
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Quick Stats</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.totalMembers}</Text>
+                <Text style={styles.statLabel}>Total Members</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.activeLoans}</Text>
+                <Text style={styles.statLabel}>Active Loans</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.pendingInstallments}</Text>
+                <Text style={styles.statLabel}>Pending Installments</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.activeLoans}</Text>
-            <Text style={styles.statLabel}>Active Loans</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.pendingInstallments}</Text>
-            <Text style={styles.statLabel}>Pending Installments</Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Available Reports Section */}
-      <View style={styles.reportsSection}>
+          {/* Available Reports Section */}
+          <View style={styles.reportsSection}>
             <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Available Reports</Text>
+              <Text style={styles.sectionTitle}>Available Reports</Text>
               <TouchableOpacity
                 style={styles.changeViewButton}
                 onPress={() => setViewType(null)}
@@ -290,8 +290,8 @@ export default function ReportsScreen({ navigation }) {
                 <Text style={styles.changeViewButtonText}>Change View</Text>
               </TouchableOpacity>
             </View>
-        {reportItems.map(renderReportItem)}
-      </View>
+            {reportItems.map(renderReportItem)}
+          </View>
         </>
       )}
 
