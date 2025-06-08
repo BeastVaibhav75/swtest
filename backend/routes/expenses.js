@@ -120,7 +120,7 @@ router.delete('/:id', authenticate, isAdmin, async (req, res) => {
       for (const memberId of earningsDistribution.memberIds) {
         const member = await User.findById(memberId);
         if (member) {
-          member.investmentBalance = (member.investmentBalance || 0) - earningsDistribution.perMemberAmount; // Subtracting a negative amount effectively adds it back
+          member.investmentBalance = (member.investmentBalance || 0) + Math.abs(earningsDistribution.perMemberAmount); // Add the absolute amount back
           await member.save();
         }
       }
