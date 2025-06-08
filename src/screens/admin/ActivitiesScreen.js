@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
-import { expensesAPI, loansAPI } from '../../services/api';
+import { expensesAPI, installmentsAPI, loansAPI } from '../../services/api';
 
 export default function ActivitiesScreen({ route }) {
   const allActivities = route.params?.activities || [];
@@ -50,6 +50,8 @@ export default function ActivitiesScreen({ route }) {
         await expensesAPI.update(editActivity.details._id, { amount });
       } else if (editActivity.type === 'Repayment') {
         await loansAPI.updateRepayment(editActivity.details.loan._id, editActivity.details._id, { amount });
+      } else if (editActivity.type === 'Installment Added') {
+        await installmentsAPI.update(editActivity.details._id, { amount });
       }
 
       // Update local state
@@ -88,6 +90,8 @@ export default function ActivitiesScreen({ route }) {
                 await expensesAPI.delete(editActivity.details._id);
               } else if (editActivity.type === 'Repayment') {
                 await loansAPI.deleteRepayment(editActivity.details.loan._id, editActivity.details._id);
+              } else if (editActivity.type === 'Installment Added') {
+                await installmentsAPI.delete(editActivity.details._id);
               }
 
               // Update local state

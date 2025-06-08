@@ -161,30 +161,30 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 router.delete('/:id', authenticate, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-
     const installment = await Installment.findById(id);
+
     if (!installment) {
       return res.status(404).json({ message: 'Installment not found' });
     }
 
-    // Revert member's investment balance
+    // 1. Revert member's investment balance
     const member = await User.findById(installment.memberId);
     if (member) {
       member.investmentBalance = (member.investmentBalance || 0) - installment.amount;
       await member.save();
     }
 
-    // Revert total fund
+    // 2. Revert total fund
     const fund = await Fund.findOne();
     if (fund) {
       fund.totalFund = (fund.totalFund || 0) - installment.amount;
       await fund.save();
     }
 
-    // Delete associated InvestmentHistory entry
-    await InvestmentHistory.deleteMany({ refId: id, type: 'installment' });
+    // 3. Delete associated InvestmentHistory entry
+    await InvestmentHistory.deleteOne({ refId: id, type: 'installment' });
 
-    // Delete the installment
+    // 4. Delete the installment
     await Installment.findByIdAndDelete(id);
 
     res.status(200).json({ message: 'Installment deleted successfully' });
@@ -213,42 +213,33 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     const oldAmount = installment.amount; // Store the old amount
     const amountDifference = newAmount - oldAmount; // Positive if new > old, negative if new < old
 
-    // 1. Update the installment document
-    installment.amount = newAmount;
-    await installment.save();
-
-    // 2. Adjust member's investment balance
+    // 1. Update member's investment balance
     const member = await User.findById(installment.memberId);
     if (member) {
       member.investmentBalance = (member.investmentBalance || 0) + amountDifference;
       await member.save();
     }
 
-    // 3. Adjust total fund
+    // 2. Update total fund
     const fund = await Fund.findOne();
     if (fund) {
       fund.totalFund = (fund.totalFund || 0) + amountDifference;
       await fund.save();
     }
 
-    // 4. Update associated InvestmentHistory entry
+    // 3. Update associated InvestmentHistory entry
     const investmentHistory = await InvestmentHistory.findOne({ refId: id, type: 'installment' });
     if (investmentHistory) {
-      investmentHistory.amount = newAmount;
+      investmentHistory.amount = newAmount; // Update the amount in history
       await investmentHistory.save();
-    } else {
-      // This case should ideally not happen if history is always created with installment
-      // but as a fallback, create a new one if not found.
-      const newInvestmentHistory = new InvestmentHistory({
-        memberId: installment.memberId,
-        amount: newAmount,
-        type: 'installment',
-        refId: installment._id.toString()
-      });
-      await newInvestmentHistory.save();
     }
 
-    res.status(200).json(installment);
+    // 4. Update the installment
+    installment.amount = newAmount;
+    installment.date = new Date(); // Update date to current date as well
+    await installment.save();
+
+    res.status(200).json({ message: 'Installment updated successfully', installment });
 
   } catch (error) {
     console.error('Installment update error:', error);
