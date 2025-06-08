@@ -6,6 +6,7 @@ const earningsDistributionSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   perMemberAmount: Number,
   memberIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  refId: { type: String, required: false },
 });
 
 module.exports = mongoose.model('EarningsDistribution', earningsDistributionSchema); 
