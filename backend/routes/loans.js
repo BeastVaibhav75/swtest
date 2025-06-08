@@ -138,6 +138,202 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Delete a repayment from a loan
+router.delete('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { loanId, repaymentId } = req.params;
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const repaymentIndex = loan.repayments.findIndex(r => r._id.toString() === repaymentId);
+    if (repaymentIndex === -1) {
+      return res.status(404).json({ message: 'Repayment not found' });
+    }
+
+    const deletedRepayment = loan.repayments[repaymentIndex];
+
+    // 1. Revert loan outstanding amount
+    loan.outstanding = Number(loan.outstanding || 0) + deletedRepayment.amount;
+
+    // 2. Adjust total fund
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = Number(fund.totalFund || 0) - deletedRepayment.amount; // Repayment decreases fund upon deletion
+      await fund.save();
+    }
+
+    // 3. Revert interest distribution if any
+    const interestPaymentIndex = loan.interestPayments.findIndex(ip => ip.date.getTime() === deletedRepayment.date.getTime()); // Assuming matching date for now
+
+    if (interestPaymentIndex !== -1) {
+      const deletedInterestPayment = loan.interestPayments[interestPaymentIndex];
+      const earningsDistribution = await EarningsDistribution.findById(deletedInterestPayment.distributionId);
+
+      if (earningsDistribution) {
+        // Revert members' interestEarned
+        for (const memberId of earningsDistribution.memberIds) {
+          const member = await User.findById(memberId);
+          if (member) {
+            member.interestEarned = Number(member.interestEarned || 0) - earningsDistribution.perMemberAmount;
+            await member.save();
+          }
+        }
+        // Delete associated InvestmentHistory entries for this interest distribution
+        await InvestmentHistory.deleteMany({ refId: earningsDistribution._id.toString(), type: 'interest' }); // Assuming refId for interest history
+
+        // Delete the EarningsDistribution entry
+        await EarningsDistribution.findByIdAndDelete(earningsDistribution._id);
+
+        // Also revert the fund for the interest amount
+        if (fund) {
+          fund.totalFund = Number(fund.totalFund || 0) - deletedInterestPayment.amount; // Interest also decreases fund upon deletion
+          await fund.save();
+        }
+      }
+      // Remove the interest payment from the loan
+      loan.interestPayments.splice(interestPaymentIndex, 1);
+    }
+
+    // 4. Remove the repayment from the loan
+    loan.repayments.splice(repaymentIndex, 1);
+
+    await loan.save();
+
+    res.status(200).json({ message: 'Repayment deleted successfully', loan });
+  } catch (error) {
+    console.error('Repayment deletion error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update a repayment on a loan
+router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { loanId, repaymentId } = req.params;
+    const { amount } = req.body; // New amount for the repayment
+
+    if (typeof amount === 'undefined' || isNaN(parseFloat(amount))) {
+      return res.status(400).json({ message: 'New repayment amount is required and must be a number.' });
+    }
+    const newRepaymentAmount = parseFloat(amount);
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    const repaymentIndex = loan.repayments.findIndex(r => r._id.toString() === repaymentId);
+    if (repaymentIndex === -1) {
+      return res.status(404).json({ message: 'Repayment not found' });
+    }
+
+    const oldRepayment = loan.repayments[repaymentIndex];
+    const oldRepaymentAmount = oldRepayment.amount;
+    const amountDifference = newRepaymentAmount - oldRepaymentAmount;
+
+    // 1. Update loan outstanding amount
+    loan.outstanding = Number(loan.outstanding || 0) - amountDifference; // If new > old, outstanding decreases more
+
+    // 2. Adjust total fund
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = Number(fund.totalFund || 0) + amountDifference; // If new > old, fund increases more
+      await fund.save();
+    }
+
+    // 3. Revert old interest distribution if any, and apply new interest distribution
+    const oldInterestPaymentIndex = loan.interestPayments.findIndex(ip => ip.date.getTime() === oldRepayment.date.getTime());
+    let oldInterestAmount = 0;
+    let oldEarningsDistributionId = null;
+
+    if (oldInterestPaymentIndex !== -1) {
+      const oldInterestPayment = loan.interestPayments[oldInterestPaymentIndex];
+      oldInterestAmount = oldInterestPayment.amount;
+      oldEarningsDistributionId = oldInterestPayment.distributionId;
+
+      // Revert members' interestEarned for the old interest amount
+      const oldEarningsDistribution = await EarningsDistribution.findById(oldEarningsDistributionId);
+      if (oldEarningsDistribution) {
+        for (const memberId of oldEarningsDistribution.memberIds) {
+          const member = await User.findById(memberId);
+          if (member) {
+            member.interestEarned = Number(member.interestEarned || 0) - oldEarningsDistribution.perMemberAmount;
+            await member.save();
+          }
+        }
+        // Delete associated InvestmentHistory entries for old interest
+        await InvestmentHistory.deleteMany({ refId: oldEarningsDistribution._id.toString(), type: 'interest' });
+        await EarningsDistribution.findByIdAndDelete(oldEarningsDistribution._id); // Delete old earnings distribution
+      }
+      loan.interestPayments.splice(oldInterestPaymentIndex, 1); // Remove old interest payment from loan
+
+      // Also revert the fund for the old interest amount
+      if (fund) {
+        fund.totalFund = Number(fund.totalFund || 0) - oldInterestAmount;
+        await fund.save();
+      }
+    }
+
+    // Calculate new interest based on the loan's outstanding before this repayment
+    // This assumes interest is calculated on the outstanding amount *before* the current repayment is applied
+    const interestAmount = Number(loan.outstanding) * 0.01; // Recalculate interest based on current outstanding
+
+    if (interestAmount > 0) {
+      const activeMembers = await User.find({ role: 'member', paused: false });
+      if (activeMembers.length > 0) {
+        const earningsDistribution = new EarningsDistribution({
+          type: 'interest',
+          totalAmount: interestAmount,
+          perMemberAmount: interestAmount / activeMembers.length,
+          memberIds: activeMembers.map(m => m._id),
+          refId: loan._id.toString() // Link interest to loan
+        });
+        await earningsDistribution.save();
+
+        loan.interestPayments.push({
+          amount: interestAmount,
+          date: new Date(),
+          distributionId: earningsDistribution._id,
+        });
+
+        if (fund) {
+          fund.totalFund = Number(fund.totalFund || 0) + interestAmount;
+          await fund.save();
+        }
+
+        const perMemberAmount = interestAmount / activeMembers.length;
+        for (const member of activeMembers) {
+          member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
+          await member.save();
+
+          const memberHistory = new InvestmentHistory({
+            memberId: member._id,
+            amount: perMemberAmount,
+            type: 'interest',
+            refId: earningsDistribution._id.toString() // Link history to earnings distribution
+          });
+          await memberHistory.save();
+        }
+      }
+    }
+
+    // 4. Update the repayment in the loan's repayments array
+    loan.repayments[repaymentIndex].amount = newRepaymentAmount;
+    loan.repayments[repaymentIndex].date = new Date(); // Update date to current date as well
+
+    await loan.save();
+
+    res.status(200).json({ message: 'Repayment updated successfully', loan });
+
+  } catch (error) {
+    console.error('Repayment update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Add repayment to loan
 router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
   try {
