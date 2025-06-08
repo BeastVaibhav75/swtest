@@ -104,7 +104,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
     // Update each member's investment balance and interest earned
     for (const member of activeMembers) {
-      member.investmentBalance = Number(member.investmentBalance || 0) + perMemberAmount;
+      // Only update interestEarned, not investmentBalance
       member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
       await member.save();
 
