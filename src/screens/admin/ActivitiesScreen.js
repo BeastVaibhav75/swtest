@@ -14,6 +14,7 @@ export default function ActivitiesScreen({ route }) {
   const [editActivity, setEditActivity] = useState(null);
   const [editAmount, setEditAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,6 +71,42 @@ export default function ActivitiesScreen({ route }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = async () => {
+    Alert.alert(
+      'Delete Activity',
+      'Are you sure you want to delete this activity?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              if (editActivity.type === 'Expense Added') {
+                await expensesAPI.delete(editActivity.details._id);
+              } else if (editActivity.type === 'Repayment') {
+                await loansAPI.deleteRepayment(editActivity.details.loan._id, editActivity.details._id);
+              }
+
+              // Update local state
+              const updatedActivities = activitiesState.filter(a => a !== editActivity);
+              setActivitiesState(updatedActivities);
+              setEditModalVisible(false);
+              Alert.alert('Success', 'Activity deleted successfully');
+            } catch (error) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', 'Failed to delete activity');
+            } finally {
+              setDeleting(false);
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const renderItem = ({ item }) => {
@@ -160,6 +197,9 @@ export default function ActivitiesScreen({ route }) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit {editActivity?.type}</Text>
+              <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                <Icon name="delete" size={24} color="#FF3B30" />
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <Icon name="close" size={24} color="#333" />
               </TouchableOpacity>
@@ -220,6 +260,10 @@ const styles = StyleSheet.create({
   editButton: {
     padding: 8,
     marginLeft: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    marginRight: 10,
   },
   modalOverlay: {
     flex: 1,

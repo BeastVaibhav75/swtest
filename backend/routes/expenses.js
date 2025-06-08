@@ -95,4 +95,50 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Delete an expense
+router.delete('/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const expense = await Expense.findById(id);
+
+    if (!expense) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    // Revert fund deduction
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = (fund.totalFund || 0) + expense.amount; // Add back the deducted amount
+      await fund.save();
+    }
+
+    // Revert member investment balances and delete related earnings distribution/investment history
+    const earningsDistribution = await EarningsDistribution.findOne({ refId: id, type: 'expense' });
+
+    if (earningsDistribution) {
+      // Revert investment balance for each affected member
+      for (const memberId of earningsDistribution.memberIds) {
+        const member = await User.findById(memberId);
+        if (member) {
+          member.investmentBalance = (member.investmentBalance || 0) - earningsDistribution.perMemberAmount; // Subtracting a negative amount effectively adds it back
+          await member.save();
+        }
+      }
+      // Delete associated InvestmentHistory entries
+      await InvestmentHistory.deleteMany({ refId: id });
+
+      // Delete the earnings distribution entry
+      await EarningsDistribution.findByIdAndDelete(earningsDistribution._id);
+    }
+
+    // Delete the expense
+    await Expense.findByIdAndDelete(id);
+
+    res.status(200).json({ message: 'Expense deleted successfully' });
+  } catch (error) {
+    console.error('Expense deletion error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 

@@ -53,6 +53,7 @@ export const loansAPI = {
   addRepayment: (loanId, amount) => api.post(`/loans/${loanId}/repayment`, { amount }),
   update: (loanId, data) => api.patch(`/loans/${loanId}`, data),
   delete: (loanId) => api.delete(`/loans/${loanId}`),
+  deleteRepayment: (loanId, repaymentId) => api.delete(`/loans/${loanId}/repayment/${repaymentId}`),
 };
 
 // Installments API
