@@ -99,6 +99,91 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Update an expense
+router.patch('/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body; // New amount for the expense
+
+    if (typeof amount === 'undefined' || isNaN(parseFloat(amount))) {
+      return res.status(400).json({ message: 'New amount is required and must be a number.' });
+    }
+
+    const newAmount = parseFloat(amount);
+
+    const expense = await Expense.findById(id);
+    if (!expense) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    const oldAmount = expense.amount; // Store the old amount
+    const amountDifference = newAmount - oldAmount; // Positive if new > old, negative if new < old
+
+    // 1. Update the expense document
+    expense.amount = newAmount;
+    await expense.save();
+
+    // 2. Adjust the total fund
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = (fund.totalFund || 0) - amountDifference; // Subtracting difference updates fund correctly
+      await fund.save();
+    }
+
+    // 3. Update EarningsDistribution and member investment balances
+    const earningsDistribution = await EarningsDistribution.findOne({ refId: id, type: 'expense' });
+
+    if (earningsDistribution) {
+      // Revert old impact on members' balances
+      for (const memberId of earningsDistribution.memberIds) {
+        const member = await User.findById(memberId);
+        if (member) {
+          member.investmentBalance = (member.investmentBalance || 0) + Math.abs(earningsDistribution.perMemberAmount);
+          await member.save();
+        }
+      }
+
+      // Update earningsDistribution for the new amount
+      const activeMembers = await User.find({ role: 'member', paused: false }); // Fetch active members again if needed
+      const newPerMemberAmount = -newAmount / activeMembers.length;
+
+      earningsDistribution.totalAmount = -newAmount;
+      earningsDistribution.perMemberAmount = newPerMemberAmount;
+      await earningsDistribution.save();
+
+      // Apply new impact on members' balances
+      for (const member of activeMembers) {
+        member.investmentBalance = (member.investmentBalance || 0) + newPerMemberAmount; // Add the new negative amount
+        await member.save();
+      }
+
+      // Update InvestmentHistory entries as well (optional, depending on granularity needed)
+      // For now, we will update existing ones or create new if not found
+      for (const member of activeMembers) {
+        let history = await InvestmentHistory.findOne({ memberId: member._id, refId: id, type: 'deduction' });
+        if (history) {
+          history.amount = newPerMemberAmount; // Update existing history entry
+          await history.save();
+        } else {
+          // Create new history entry if not found (e.g., for very old expenses)
+          const memberHistory = new InvestmentHistory({
+            memberId: member._id,
+            amount: newPerMemberAmount,
+            type: 'deduction',
+            refId: expense._id.toString()
+          });
+          await memberHistory.save();
+        }
+      }
+    }
+
+    res.status(200).json(expense);
+  } catch (error) {
+    console.error('Expense update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Delete an expense
 router.delete('/:id', authenticate, isAdmin, async (req, res) => {
   try {
@@ -118,19 +203,14 @@ router.delete('/:id', authenticate, isAdmin, async (req, res) => {
 
     // Revert member investment balances and delete related earnings distribution/investment history
     const earningsDistribution = await EarningsDistribution.findOne({ refId: id, type: 'expense' });
-    console.log('Expense being deleted:', expense);
-    console.log('Found EarningsDistribution:', earningsDistribution);
 
     if (earningsDistribution) {
       // Revert investment balance for each affected member
       for (const memberId of earningsDistribution.memberIds) {
         const member = await User.findById(memberId);
         if (member) {
-          console.log(`Member ${member.name} (ID: ${member._id}) - Balance BEFORE: ${member.investmentBalance}`);
-          console.log(`EarningsDistribution perMemberAmount: ${earningsDistribution.perMemberAmount}`);
           member.investmentBalance = (member.investmentBalance || 0) + Math.abs(earningsDistribution.perMemberAmount); // Add the absolute amount back
           await member.save();
-          console.log(`Member ${member.name} (ID: ${member._id}) - Balance AFTER: ${member.investmentBalance}`);
         }
       }
       // Delete associated InvestmentHistory entries
