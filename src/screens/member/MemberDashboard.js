@@ -62,7 +62,7 @@ export default function MemberDashboard({ navigation }) {
         installmentsAPI.getMyInstallments()
       ]);
 
-      setInterestEarned(shareValueRes.data?.interestPerMember || 0);
+      setInterestEarned(user.interestEarned || 0);
       setShareValue(shareValueRes.data?.shareValue || 0);
       setInvestmentBalance(investmentRes.data?.investmentBalance || 0);
       setTotalExpenses(shareValueRes.data?.expensesPerMember || 0);
@@ -182,7 +182,7 @@ export default function MemberDashboard({ navigation }) {
             </View>
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Expenses (Shared)</Text>
-              <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{totalExpenses.toFixed(2)}</Text>
+              <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{Math.abs(totalExpenses).toFixed(2)}</Text>
             </View>
             <View style={[styles.breakdownRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Your Share Value</Text>

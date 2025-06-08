@@ -40,6 +40,7 @@ router.post('/login', async (req, res) => {
       name: user.name,
       role: user.role,
       investmentBalance: user.investmentBalance || 0,
+      interestEarned: user.interestEarned || 0,
       token
     };
 

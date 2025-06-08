@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { fundAPI } from '../../services/api';
 
@@ -23,20 +23,30 @@ export default function MemberEarnings() {
         fundAPI.getInterest(user._id),
         fundAPI.getShareValue()
       ]);
-      // Use interestPerMember from share value for consistency
-      setTotalInterest(shareValueRes.data?.interestPerMember || 0);
+      // Use interestEarned from user data
+      setTotalInterest(user.interestEarned || 0);
       setDistributions(interestRes.data.distributions || []);
 
       // Calculate monthly interest from distributions
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthlyDistributions = interestRes.data.distributions.filter(
-        dist => new Date(dist.date) >= firstDay
-      );
-      const monthlyTotal = monthlyDistributions.reduce(
-        (sum, dist) => sum + (dist.perMemberAmount || 0),
-        0
-      );
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      // Filter distributions for current month
+      const monthlyDistributions = interestRes.data.distributions.filter(dist => {
+        const distDate = new Date(dist.date);
+        return distDate >= firstDay && distDate <= lastDay;
+      });
+
+      // Calculate total monthly interest
+      const monthlyTotal = monthlyDistributions.reduce((sum, dist) => {
+        // Only include interest and deduction types
+        if (dist.type === 'interest' || dist.type === 'deduction') {
+          return sum + (dist.perMemberAmount || 0);
+        }
+        return sum;
+      }, 0);
+
       setMonthlyInterest(monthlyTotal);
     } catch (error) {
       console.error('Error fetching earnings data:', error);

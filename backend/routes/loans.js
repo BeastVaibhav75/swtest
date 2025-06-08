@@ -102,6 +102,22 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
     await earningsDistribution.save();
 
+    // Update each member's investment balance and interest earned
+    for (const member of activeMembers) {
+      member.investmentBalance = Number(member.investmentBalance || 0) + perMemberAmount;
+      member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
+      await member.save();
+
+      // Create investment history entry for each member
+      const memberHistory = new InvestmentHistory({
+        memberId: member._id,
+        amount: perMemberAmount,
+        type: 'deduction',
+        refId: loan._id.toString()
+      });
+      await memberHistory.save();
+    }
+
     // Update total fund with deduction
     const fund = await Fund.findOne();
     if (fund) {
@@ -185,6 +201,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
         const perMemberAmount = interestAmount / activeMembers.length;
         for (const member of activeMembers) {
           member.investmentBalance = Number(member.investmentBalance || 0) + perMemberAmount;
+          member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
           await member.save();
 
           // Create investment history entry for each member
