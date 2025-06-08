@@ -154,11 +154,6 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid repayment amount' });
     }
 
-    // If repayment amount is 0, skip adding it to repayments
-    if (repaymentAmount === 0) {
-      return res.status(200).json({ message: 'Repayment amount is 0, no update made.' });
-    }
-
     // Calculate 1% interest on the outstanding amount before repayment
     const interestAmount = Number(loan.outstanding) * 0.01;
     let interestDistributed = false;
@@ -200,7 +195,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
         // Update each member's investment balance with their share
         const perMemberAmount = interestAmount / activeMembers.length;
         for (const member of activeMembers) {
-          member.investmentBalance = Number(member.investmentBalance || 0) + perMemberAmount;
+          // Only update interestEarned, not investmentBalance
           member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
           await member.save();
 
@@ -217,8 +212,10 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
       }
     }
 
-    // Add repayment to loan
-    loan.repayments.push({ amount: repaymentAmount, date: new Date() });
+    // Add repayment to loan if amount is not 0
+    if (repaymentAmount > 0) {
+      loan.repayments.push({ amount: repaymentAmount, date: new Date() });
+    }
     
     // Calculate new outstanding amount - ensure all numbers are properly converted
     const totalRepayments = loan.repayments.reduce((sum, r) => sum + Number(r.amount || 0), 0);
