@@ -89,8 +89,6 @@ export default function ActivitiesScreen({ route }) {
       amount = `₹${item.details.amount}`;
     }
 
-    const canEdit = item.type === 'Expense Added' || item.type === 'Repayment';
-
     return (
       <View style={styles.item}>
         <View style={styles.itemRow}>
@@ -100,11 +98,9 @@ export default function ActivitiesScreen({ route }) {
             {member ? <Text style={styles.detail}>Member: {member}</Text> : null}
             {amount ? <Text style={styles.detail}>Amount: {amount}</Text> : null}
           </View>
-          {canEdit && (
-            <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editButton}>
-              <Icon name="pencil" size={20} color="#007AFF" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => handleEdit(item)} style={styles.editButton}>
+            <Icon name="pencil" size={20} color="#007AFF" />
+          </TouchableOpacity>
         </View>
       </View>
     );
