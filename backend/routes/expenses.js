@@ -114,14 +114,19 @@ router.delete('/:id', authenticate, isAdmin, async (req, res) => {
 
     // Revert member investment balances and delete related earnings distribution/investment history
     const earningsDistribution = await EarningsDistribution.findOne({ refId: id, type: 'expense' });
+    console.log('Expense being deleted:', expense);
+    console.log('Found EarningsDistribution:', earningsDistribution);
 
     if (earningsDistribution) {
       // Revert investment balance for each affected member
       for (const memberId of earningsDistribution.memberIds) {
         const member = await User.findById(memberId);
         if (member) {
+          console.log(`Member ${member.name} (ID: ${member._id}) - Balance BEFORE: ${member.investmentBalance}`);
+          console.log(`EarningsDistribution perMemberAmount: ${earningsDistribution.perMemberAmount}`);
           member.investmentBalance = (member.investmentBalance || 0) + Math.abs(earningsDistribution.perMemberAmount); // Add the absolute amount back
           await member.save();
+          console.log(`Member ${member.name} (ID: ${member._id}) - Balance AFTER: ${member.investmentBalance}`);
         }
       }
       // Delete associated InvestmentHistory entries
