@@ -54,6 +54,7 @@ export const loansAPI = {
   update: (loanId, data) => api.patch(`/loans/${loanId}`, data),
   delete: (loanId) => api.delete(`/loans/${loanId}`),
   deleteRepayment: (loanId, repaymentId) => api.delete(`/loans/${loanId}/repayment/${repaymentId}`),
+  updateRepayment: (loanId, repaymentId, data) => api.patch(`/loans/${loanId}/repayment/${repaymentId}`, data),
 };
 
 // Installments API
