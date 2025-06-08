@@ -45,6 +45,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
     await expense.save();
 
+    console.log('Expense _id after saving:', expense._id.toString());
+
     // Update fund
     const fund = await Fund.findOne();
     if (fund) {
@@ -70,6 +72,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       memberIds: activeMembers.map(m => m._id),
       refId: expense._id.toString()
     });
+
+    console.log('EarningsDistribution refId before saving:', earningsDistribution.refId);
 
     await earningsDistribution.save();
 
