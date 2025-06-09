@@ -443,26 +443,43 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
 
     // If amount is being updated, handle deduction changes
     if (updateData.amount && updateData.amount !== loan.amount) {
-      const oldDeduction = loan.deduction;
-      const newDeduction = updateData.amount * 0.02;
-      const deductionDifference = newDeduction - oldDeduction;
+      const oldDeduction = Number(loan.deduction.toFixed(2));
+      const newDeduction = Number((updateData.amount * 0.02).toFixed(2));
+      const deductionDifference = Number((newDeduction - oldDeduction).toFixed(2));
+
+      console.log('Loan Update - Deduction Details:', {
+        oldAmount: loan.amount,
+        newAmount: updateData.amount,
+        oldDeduction,
+        newDeduction,
+        deductionDifference
+      });
 
       // Update fund with deduction difference
       const fund = await Fund.findOne();
       if (fund) {
-        fund.totalFund = Number(fund.totalFund || 0) + deductionDifference;
+        fund.totalFund = Number((Number(fund.totalFund || 0) + deductionDifference).toFixed(2));
         await fund.save();
       }
 
       // Get active members for distribution
       const activeMembers = await User.find({ role: 'member', paused: false });
-      const perMemberAmount = deductionDifference / activeMembers.length;
+      const perMemberAmount = Number((deductionDifference / activeMembers.length).toFixed(2));
+
+      console.log('Loan Update - Per Member Amount:', perMemberAmount);
 
       // Update each member's interest earned
       for (const member of activeMembers) {
-        // Ensure interestEarned is a number and has a default value
-        member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
+        const oldInterestEarned = Number(member.interestEarned || 0);
+        member.interestEarned = Number((oldInterestEarned + perMemberAmount).toFixed(2));
         await member.save();
+
+        console.log('Member Interest Update:', {
+          memberId: member._id,
+          oldInterestEarned,
+          newInterestEarned: member.interestEarned,
+          change: perMemberAmount
+        });
 
         // Create investment history entry for each member
         const memberHistory = new InvestmentHistory({
@@ -474,12 +491,19 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
         await memberHistory.save();
       }
 
-      // Create earnings distribution for deduction difference
+      // Delete old earnings distribution entries for this loan
+      await EarningsDistribution.deleteMany({ 
+        type: 'deduction',
+        refId: loan._id.toString()
+      });
+
+      // Create new earnings distribution for deduction difference
       const earningsDistribution = new EarningsDistribution({
         type: 'deduction',
         totalAmount: deductionDifference,
         perMemberAmount,
-        memberIds: activeMembers.map(m => m._id)
+        memberIds: activeMembers.map(m => m._id),
+        refId: loan._id.toString()
       });
       await earningsDistribution.save();
     }
@@ -509,21 +533,39 @@ router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
+    // Calculate current deduction based on current loan amount
+    const currentDeduction = Number((loan.amount * 0.02).toFixed(2));
+
+    console.log('Loan Delete - Deduction Details:', {
+      loanAmount: loan.amount,
+      currentDeduction
+    });
+
     // Revert the deduction from the fund
     const fund = await Fund.findOne();
     if (fund) {
-      fund.totalFund = Number(fund.totalFund || 0) - loan.deduction;
+      fund.totalFund = Number((Number(fund.totalFund || 0) - currentDeduction).toFixed(2));
       await fund.save();
     }
 
     // Get active members for deduction reversal
     const activeMembers = await User.find({ role: 'member', paused: false });
-    const perMemberDeduction = loan.deduction / activeMembers.length;
+    const perMemberDeduction = Number((currentDeduction / activeMembers.length).toFixed(2));
+
+    console.log('Loan Delete - Per Member Deduction:', perMemberDeduction);
 
     // Revert deduction from each member's interest earned
     for (const member of activeMembers) {
-      member.interestEarned = Number(member.interestEarned || 0) - perMemberDeduction;
+      const oldInterestEarned = Number(member.interestEarned || 0);
+      member.interestEarned = Number((oldInterestEarned - perMemberDeduction).toFixed(2));
       await member.save();
+
+      console.log('Member Interest Reversal:', {
+        memberId: member._id,
+        oldInterestEarned,
+        newInterestEarned: member.interestEarned,
+        change: -perMemberDeduction
+      });
 
       // Create investment history entry for deduction reversal
       const memberHistory = new InvestmentHistory({
@@ -535,22 +577,21 @@ router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
       await memberHistory.save();
     }
 
-    // Revert interest earned by members from interest payments
-    for (const interestPayment of loan.interestPayments) {
-      const earningsDistribution = await EarningsDistribution.findById(interestPayment.distributionId);
-      if (earningsDistribution) {
-        for (const memberId of earningsDistribution.memberIds) {
-          const member = await User.findById(memberId);
-          if (member) {
-            member.interestEarned = Number(member.interestEarned || 0) - earningsDistribution.perMemberAmount;
-            await member.save();
-          }
-        }
-        // Delete associated InvestmentHistory entries
-        await InvestmentHistory.deleteMany({ refId: earningsDistribution._id.toString(), type: 'interest' });
-        await EarningsDistribution.findByIdAndDelete(earningsDistribution._id);
-      }
-    }
+    // Delete all earnings distribution entries related to this loan
+    await EarningsDistribution.deleteMany({
+      $or: [
+        { refId: loan._id.toString() },
+        { type: 'deduction', refId: loan._id.toString() }
+      ]
+    });
+
+    // Delete associated InvestmentHistory entries
+    await InvestmentHistory.deleteMany({
+      $or: [
+        { refId: loan._id.toString() },
+        { type: 'deduction', refId: loan._id.toString() }
+      ]
+    });
 
     // Delete the loan
     await Loan.findByIdAndDelete(loanId);
