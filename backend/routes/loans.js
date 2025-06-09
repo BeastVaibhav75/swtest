@@ -460,6 +460,7 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
 
       // Update each member's interest earned
       for (const member of activeMembers) {
+        // Ensure interestEarned is a number and has a default value
         member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
         await member.save();
 
@@ -515,7 +516,26 @@ router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
       await fund.save();
     }
 
-    // Revert interest earned by members
+    // Get active members for deduction reversal
+    const activeMembers = await User.find({ role: 'member', paused: false });
+    const perMemberDeduction = loan.deduction / activeMembers.length;
+
+    // Revert deduction from each member's interest earned
+    for (const member of activeMembers) {
+      member.interestEarned = Number(member.interestEarned || 0) - perMemberDeduction;
+      await member.save();
+
+      // Create investment history entry for deduction reversal
+      const memberHistory = new InvestmentHistory({
+        memberId: member._id,
+        amount: -perMemberDeduction,
+        type: 'deduction',
+        refId: loan._id.toString()
+      });
+      await memberHistory.save();
+    }
+
+    // Revert interest earned by members from interest payments
     for (const interestPayment of loan.interestPayments) {
       const earningsDistribution = await EarningsDistribution.findById(interestPayment.distributionId);
       if (earningsDistribution) {
