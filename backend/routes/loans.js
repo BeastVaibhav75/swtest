@@ -441,6 +441,19 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
+    // Check if loan has any repayments or interest payments
+    if (loan.repayments && loan.repayments.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot edit loan amount. Loan has existing repayments.' 
+      });
+    }
+
+    if (loan.interestPayments && loan.interestPayments.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot edit loan amount. Loan has existing interest payments.' 
+      });
+    }
+
     // If amount is being updated, handle deduction changes
     if (updateData.amount && updateData.amount !== loan.amount) {
       const oldDeduction = Number(loan.deduction.toFixed(2));
@@ -491,10 +504,13 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
         await memberHistory.save();
       }
 
-      // Delete old earnings distribution entries for this loan
-      await EarningsDistribution.deleteMany({ 
-        type: 'deduction',
-        refId: loan._id.toString()
+      // Delete ALL earnings distribution entries related to this loan
+      await EarningsDistribution.deleteMany({
+        $or: [
+          { refId: loan._id.toString() },
+          { type: 'deduction', refId: loan._id.toString() },
+          { type: 'interest', refId: loan._id.toString() }
+        ]
       });
 
       // Create new earnings distribution for deduction difference
@@ -531,6 +547,19 @@ router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
     const loan = await Loan.findById(loanId);
     if (!loan) {
       return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    // Check if loan has any repayments or interest payments
+    if (loan.repayments && loan.repayments.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete loan. Loan has existing repayments.' 
+      });
+    }
+
+    if (loan.interestPayments && loan.interestPayments.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete loan. Loan has existing interest payments.' 
+      });
     }
 
     // Calculate current deduction based on current loan amount
