@@ -1,18 +1,33 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { membersAPI } from '../services/api';
 
 const MembersScreen = () => {
   const navigation = useNavigation();
   const { data: members, loading, error, execute: fetchMembers } = useApi(membersAPI.getAll);
+  const { logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  useEffect(() => {
+    if (error && error.status === 401) {
+      console.log('MembersScreen: 401 Unauthorized, logging out.');
+      logout();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } else if (error) {
+      console.error('MembersScreen: An unexpected error occurred:', error);
+    }
+  }, [error, logout, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

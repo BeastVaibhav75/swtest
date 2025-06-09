@@ -45,7 +45,7 @@ export default function AdminDashboard() {
   const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
   const navigation = useNavigation();
   const route = useRoute();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { updating } = useUpdateCheck();
 
   useEffect(() => {
@@ -151,8 +151,18 @@ export default function AdminDashboard() {
       setCashInHand(cashInHandValue);
 
     } catch (err) {
-      setError('Failed to load dashboard data');
-      console.error('Dashboard data error:', err);
+      // Check for 401 Unauthorized error specifically
+      if (err.response && err.response.status === 401) {
+        console.log('AdminDashboard: 401 Unauthorized, logging out.');
+        logout();
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      } else {
+        setError('Failed to load dashboard data');
+        console.error('Dashboard data error:', err);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);

@@ -27,6 +27,29 @@ api.interceptors.request.use(
   }
 );
 
+// Add a response interceptor to handle 401 Unauthorized errors globally
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      await AsyncStorage.multiRemove(['user', 'token']);
+
+      // Since we don't have navigation context directly here, we'll rely on the app's root navigator
+      // or the next render cycle to pick up the null user state and redirect.
+      // For immediate redirection, it's usually handled at the navigation level or specific screen.
+      // However, clearing the token and user will effectively invalidate the session.
+
+      // You might need a global navigation ref or a state in a top-level component for immediate reset
+      // For now, clearing storage and letting AuthProvider react to it is the best approach without changing fundamental app structure.
+      
+      // To trigger a navigation reset from here, it's more complex and typically involves a global navigation service.
+      // Given the setup, clearing storage is the primary action. The screens using `useAuth` will react.
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),

@@ -430,4 +430,74 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Update a loan
+router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { loanId } = req.params;
+    const updateData = req.body;
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    // Update loan fields
+    Object.keys(updateData).forEach(key => {
+      if (key !== '_id' && key !== 'memberId' && key !== 'approvedBy') {
+        loan[key] = updateData[key];
+      }
+    });
+
+    await loan.save();
+    res.status(200).json(loan);
+  } catch (error) {
+    console.error('Loan update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete a loan
+router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { loanId } = req.params;
+
+    const loan = await Loan.findById(loanId);
+    if (!loan) {
+      return res.status(404).json({ message: 'Loan not found' });
+    }
+
+    // Revert the deduction from the fund
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = Number(fund.totalFund || 0) - loan.deduction;
+      await fund.save();
+    }
+
+    // Revert interest earned by members
+    for (const interestPayment of loan.interestPayments) {
+      const earningsDistribution = await EarningsDistribution.findById(interestPayment.distributionId);
+      if (earningsDistribution) {
+        for (const memberId of earningsDistribution.memberIds) {
+          const member = await User.findById(memberId);
+          if (member) {
+            member.interestEarned = Number(member.interestEarned || 0) - earningsDistribution.perMemberAmount;
+            await member.save();
+          }
+        }
+        // Delete associated InvestmentHistory entries
+        await InvestmentHistory.deleteMany({ refId: earningsDistribution._id.toString(), type: 'interest' });
+        await EarningsDistribution.findByIdAndDelete(earningsDistribution._id);
+      }
+    }
+
+    // Delete the loan
+    await Loan.findByIdAndDelete(loanId);
+
+    res.status(200).json({ message: 'Loan deleted successfully' });
+  } catch (error) {
+    console.error('Loan deletion error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 
