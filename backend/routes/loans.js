@@ -441,6 +441,48 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
+    // If amount is being updated, handle deduction changes
+    if (updateData.amount && updateData.amount !== loan.amount) {
+      const oldDeduction = loan.deduction;
+      const newDeduction = updateData.amount * 0.02;
+      const deductionDifference = newDeduction - oldDeduction;
+
+      // Update fund with deduction difference
+      const fund = await Fund.findOne();
+      if (fund) {
+        fund.totalFund = Number(fund.totalFund || 0) + deductionDifference;
+        await fund.save();
+      }
+
+      // Get active members for distribution
+      const activeMembers = await User.find({ role: 'member', paused: false });
+      const perMemberAmount = deductionDifference / activeMembers.length;
+
+      // Update each member's interest earned
+      for (const member of activeMembers) {
+        member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
+        await member.save();
+
+        // Create investment history entry for each member
+        const memberHistory = new InvestmentHistory({
+          memberId: member._id,
+          amount: perMemberAmount,
+          type: 'deduction',
+          refId: loan._id.toString()
+        });
+        await memberHistory.save();
+      }
+
+      // Create earnings distribution for deduction difference
+      const earningsDistribution = new EarningsDistribution({
+        type: 'deduction',
+        totalAmount: deductionDifference,
+        perMemberAmount,
+        memberIds: activeMembers.map(m => m._id)
+      });
+      await earningsDistribution.save();
+    }
+
     // Update loan fields
     Object.keys(updateData).forEach(key => {
       if (key !== '_id' && key !== 'memberId' && key !== 'approvedBy') {

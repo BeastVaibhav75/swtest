@@ -52,6 +52,23 @@ export default function ActivitiesScreen({ route }) {
         await loansAPI.updateRepayment(editActivity.details.loan._id, editActivity.details._id, { amount });
       } else if (editActivity.type === 'Installment Added') {
         await installmentsAPI.update(editActivity.details._id, { amount });
+      } else if (editActivity.type === 'Loan Approved') {
+        // For loans, we need to update the loan amount and recalculate all related amounts
+        const loanId = editActivity.details._id;
+        const oldAmount = editActivity.details.amount;
+        const amountDifference = amount - oldAmount;
+        
+        // Calculate new deduction (2% of new amount)
+        const newDeduction = amount * 0.02;
+        const newNetAmount = amount - newDeduction;
+        
+        // Update loan with new amounts
+        await loansAPI.update(loanId, {
+          amount: amount,
+          deduction: newDeduction,
+          netAmount: newNetAmount,
+          outstanding: editActivity.details.outstanding + amountDifference
+        });
       }
 
       // Update local state
@@ -59,7 +76,12 @@ export default function ActivitiesScreen({ route }) {
         if (a === editActivity) {
           return {
             ...a,
-            details: { ...a.details, amount }
+            details: { 
+              ...a.details, 
+              amount,
+              deduction: editActivity.type === 'Loan Approved' ? amount * 0.02 : a.details.deduction,
+              netAmount: editActivity.type === 'Loan Approved' ? amount - (amount * 0.02) : a.details.netAmount
+            }
           };
         }
         return a;
@@ -92,6 +114,9 @@ export default function ActivitiesScreen({ route }) {
                 await loansAPI.deleteRepayment(editActivity.details.loan._id, editActivity.details._id);
               } else if (editActivity.type === 'Installment Added') {
                 await installmentsAPI.delete(editActivity.details._id);
+              } else if (editActivity.type === 'Loan Approved') {
+                // For loans, we need to delete the entire loan
+                await loansAPI.delete(editActivity.details._id);
               }
 
               // Update local state
