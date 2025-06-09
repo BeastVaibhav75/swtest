@@ -180,10 +180,7 @@ export default function MemberDashboard({ navigation }) {
               <Text style={styles.breakdownLabel}>Interest Earned</Text>
               <Text style={[styles.breakdownValue, styles.positiveValue]}>+ ₹{interestEarned.toFixed(2)}</Text>
             </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Expenses (Shared)</Text>
-              <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{Math.abs(totalExpenses).toFixed(2)}</Text>
-            </View>
+          
             <View style={[styles.breakdownRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Your Share Value</Text>
               <Text style={[styles.breakdownValue, styles.totalValue]}>₹{shareValue.toFixed(2)}</Text>

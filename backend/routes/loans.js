@@ -59,13 +59,13 @@ router.get('/my-loans', authenticate, async (req, res) => {
 // Create new loan
 router.post('/', authenticate, isAdmin, async (req, res) => {
   try {
-    const { memberId, amount, interestRate } = req.body;
+    const { memberId, amount, interestRate, date } = req.body;
     
     // Calculate deduction (2% of amount)
     const deduction = amount * 0.02;
     const netAmount = amount - deduction;
 
-    // Create loan
+    // Create loan with provided date or current date
     const loan = new Loan({
       memberId,
       amount,
@@ -73,7 +73,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       deduction,
       netAmount,
       outstanding: amount,
-      approvedBy: req.user.userId
+      approvedBy: req.user.userId,
+      date: date ? new Date(date) : new Date() // Use provided date or current date
     });
 
     await loan.save();
@@ -97,7 +98,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       type: 'deduction',
       totalAmount: deduction,
       perMemberAmount,
-      memberIds: activeMembers.map(m => m._id)
+      memberIds: activeMembers.map(m => m._id),
+      refId: loan._id.toString()
     });
 
     await earningsDistribution.save();
