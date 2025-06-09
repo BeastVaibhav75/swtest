@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,6 +18,7 @@ export default function ActivitiesScreen({ route }) {
   const [deleting, setDeleting] = useState(false);
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
 
   // Format date to yyyy-mm-dd
   const formatDate = (date) => date.toISOString().slice(0, 10);
@@ -88,7 +90,14 @@ export default function ActivitiesScreen({ route }) {
       });
       setActivitiesState(updatedActivities);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Activity updated successfully');
+      Alert.alert('Success', 'Activity updated successfully', [
+        { 
+          text: 'OK', 
+          onPress: () => {
+            navigation.navigate('DashboardMain', { refresh: true });
+          }
+        }
+      ]);
     } catch (error) {
       console.error('Update error:', error);
       Alert.alert('Error', 'Failed to update activity');
@@ -123,7 +132,14 @@ export default function ActivitiesScreen({ route }) {
               const updatedActivities = activitiesState.filter(a => a !== editActivity);
               setActivitiesState(updatedActivities);
               setEditModalVisible(false);
-              Alert.alert('Success', 'Activity deleted successfully');
+              Alert.alert('Success', 'Activity deleted successfully', [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    navigation.navigate('DashboardMain', { refresh: true });
+                  }
+                }
+              ]);
             } catch (error) {
               console.error('Delete error:', error);
               Alert.alert('Error', 'Failed to delete activity');
