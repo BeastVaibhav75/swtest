@@ -3,7 +3,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,101 +21,116 @@ import { fundAPI, installmentsAPI, loansAPI, membersAPI } from '../../services/a
 export default function ReportDetail({ route, navigation }) {
   const { reportType, viewType, selectedMemberId, selectedMemberIds } = route.params;
   const [loading, setLoading] = useState(true);
-  const [reportData, setReportData] = useState(null);
   const [error, setError] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [reportData, setReportData] = useState(null);
   const [allLoans, setAllLoans] = useState([]);
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateType, setDateType] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Set default date range to first day of current month to today
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const [startDate, setStartDate] = useState(firstDayOfMonth);
+  const [endDate, setEndDate] = useState(today);
 
-  useEffect(() => {
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
     fetchReportDetail();
-  }, [reportType, viewType, selectedMemberId, selectedMemberIds, startDate, endDate]);
+  }, []);
 
   const fetchReportDetail = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch members data for individual and collective views
-      if (viewType !== 'overall') {
-        const membersRes = await membersAPI.getAll();
-        setMembers(membersRes.data);
-      }
-
-      // Helper function to check if a date is within the selected range
-      const isDateInRange = (date) => {
-        const itemDate = new Date(date);
-        // Set time to midnight for comparison to include the entire day
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-
-        return itemDate >= start && itemDate <= end;
-      };
-
-      // Construct date query parameters
-      const dateQueryParams = {};
-      if (startDate) {
-        dateQueryParams.startDate = startDate.toISOString();
-      }
-      if (endDate) {
-        dateQueryParams.endDate = endDate.toISOString();
-      }
+      // Fetch members first
+      const membersRes = await membersAPI.getAll();
+      setMembers(membersRes.data);
 
       switch (reportType) {
-        case '1': // Monthly Interest Report
+        case '1': // Interest Report
           // Use the new API endpoint for date range
           const [interestRes, membersRes] = await Promise.all([
             fundAPI.getTotalInterestByRange(startDate.toISOString(), endDate.toISOString()),
             membersAPI.getAll(),
           ]);
-          const totalInterest = interestRes.data?.totalInterest || 0; // Get totalInterest from the new API response
+          
+          console.log('Interest response:', interestRes.data); // Debug log
+          
+          const totalInterest = interestRes.data?.totalInterest || 0;
+          const distributions = interestRes.data?.distributions || [];
           
           if (viewType === 'overall') {
             const perMemberInterest = totalInterest / (membersRes.data.length || 1);
             setReportData({
-              title: 'Monthly Interest Report',
+              title: 'Interest Report',
               totalAmount: totalInterest,
               perMemberAmount: perMemberInterest,
               totalMembers: membersRes.data.length,
               date: new Date().toISOString(),
               startDate: startDate.toISOString(),
               endDate: endDate.toISOString(),
+              distributions: distributions // Include distributions for reference
             });
           } else if (viewType === 'individual') {
             const member = membersRes.data.find(m => m._id === selectedMemberId);
-            // For individual view, we still use total interest / total members as per the existing logic
-            const perMemberInterest = totalInterest / (membersRes.data.length || 1);
+            
+            // Filter distributions for the selected member
+            const memberDistributions = distributions.filter(dist => 
+              dist.memberIds.includes(selectedMemberId)
+            );
+            
+            // Calculate total interest for the member
+            const memberTotalInterest = memberDistributions.reduce((sum, dist) => {
+              return sum + (dist.perMemberAmount || 0);
+            }, 0);
+            
             setReportData({
-              title: `Monthly Interest Report - ${member?.name || 'Member'}`,
-              totalAmount: perMemberInterest,
+              title: `Interest Report - ${member?.name || 'Member'}`,
+              totalAmount: memberTotalInterest,
               date: new Date().toISOString(),
               startDate: startDate.toISOString(),
               endDate: endDate.toISOString(),
+              distributions: memberDistributions // Include member's distributions
             });
           } else if (viewType === 'collective') {
             const selectedMembers = membersRes.data.filter(m => selectedMemberIds.includes(m._id));
-             // For collective view, we still use total interest / total members * selected members as per the existing logic
-            const perMemberInterest = totalInterest / (membersRes.data.length || 1);
-            const totalSelectedInterest = perMemberInterest * selectedMembers.length;
+            
+            // Get interest for each selected member
+            const memberInterests = selectedMembers.map(member => {
+              // Filter distributions for this member
+              const memberDistributions = distributions.filter(dist => 
+                dist.memberIds.includes(member._id)
+              );
+              
+              // Calculate total interest for the member
+              const memberTotalInterest = memberDistributions.reduce((sum, dist) => {
+                return sum + (dist.perMemberAmount || 0);
+              }, 0);
+              
+              return {
+                name: member.name,
+                amount: memberTotalInterest,
+                distributions: memberDistributions // Include member's distributions
+              };
+            });
+            
+            // Calculate total interest for all selected members
+            const totalSelectedInterest = memberInterests.reduce((sum, member) => sum + member.amount, 0);
+            
             setReportData({
-              title: 'Monthly Interest Report - Selected Members',
+              title: 'Interest Report - Selected Members',
               totalAmount: totalSelectedInterest,
-              perMemberAmount: perMemberInterest,
+              perMemberAmount: totalSelectedInterest / selectedMembers.length,
               totalMembers: selectedMembers.length,
-              members: selectedMembers.map(m => ({
-                name: m.name,
-                amount: perMemberInterest,
-              })),
+              members: memberInterests,
               date: new Date().toISOString(),
               startDate: startDate.toISOString(),
               endDate: endDate.toISOString(),
+              distributions: distributions // Include all distributions
             });
           }
           break;
@@ -341,12 +356,17 @@ export default function ReportDetail({ route, navigation }) {
           setError('Invalid report type');
       }
     } catch (error) {
-      console.error('Error fetching report detail:', error);
-      setError('Failed to load report data');
+      console.error('Error fetching report:', error);
+      setError('Failed to fetch report data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    fetchReportDetail();
+  }, [reportType, viewType, selectedMemberId, selectedMemberIds, startDate, endDate]);
 
   const updateReportData = async (loan) => {
     try {
@@ -437,23 +457,19 @@ export default function ReportDetail({ route, navigation }) {
     updateReportData(selected);
   };
 
-  const onDateChange = (event, selectedDate, type) => {
+  const handleDateChange = (event, selectedDate, type) => {
     const currentDate = selectedDate || new Date();
     if (type === 'start') {
-      setShowStartDatePicker(Platform.OS === 'ios');
       setStartDate(currentDate);
     } else {
-      setShowEndDatePicker(Platform.OS === 'ios');
       setEndDate(currentDate);
     }
+    setShowDatePicker(false);
   };
 
-  const showDatePicker = (type) => {
-    if (type === 'start') {
-      setShowStartDatePicker(true);
-    } else {
-      setShowEndDatePicker(true);
-    }
+  const showDatePickerModal = (type) => {
+    setDateType(type);
+    setShowDatePicker(true);
   };
 
   const generatePDF = async () => {
@@ -575,8 +591,8 @@ export default function ReportDetail({ route, navigation }) {
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
             .app-header { 
-                position: relative; /* Use relative positioning for containing absolute children */
-                height: 60px; /* Give the header a defined height */
+                position: relative;
+                height: 60px;
                 margin-bottom: 20px; 
                 padding-bottom: 10px; 
                 border-bottom: 1px solid #ccc; 
@@ -584,13 +600,12 @@ export default function ReportDetail({ route, navigation }) {
             .app-logo { 
                 position: absolute; 
                 left: 0; top: 0;
-                height: 50px; 
-                /* margin-right: 10px; */ /* Remove margin since we are using absolute positioning */
+                height: 50px;
             }
             .app-name { 
                 position: absolute; 
-                left: 60px; /* Position next to logo */
-                top: 10px; /* Adjust vertical alignment */
+                left: 60px;
+                top: 10px;
                 font-size: 24px; 
                 font-weight: bold; 
                 color: #007AFF; 
@@ -600,7 +615,7 @@ export default function ReportDetail({ route, navigation }) {
                 font-size: 20px; 
                 text-align: center; 
                 margin: 10px 0; 
-                margin-top: 60px; /* Add margin to push content below absolute header */
+                margin-top: 60px;
             }
             .report-date { 
                 font-size: 14px; 
@@ -638,7 +653,7 @@ export default function ReportDetail({ route, navigation }) {
                 </tr>
                 <tr>
                   <th>Total Members</th>
-                  <td>{reportData.totalMembers}</td>
+                  <td>${reportData.totalMembers}</td>
                 </tr>
               ` : ''}
             </table>
@@ -652,8 +667,8 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
               ${reportData.members.map(member => `
                 <tr>
-                  <td>{member.name}</td>
-                  <td>₹{member.amount.toFixed(2)}</td>
+                  <td>${member.name}</td>
+                  <td>₹${member.amount.toFixed(2)}</td>
                 </tr>
               `).join('')}
             </table>
@@ -1041,29 +1056,36 @@ export default function ReportDetail({ route, navigation }) {
         {showDatePickers && (
           <View style={styles.dateRangeContainer}>
             <Text style={styles.sectionTitle}>Select Date Range</Text>
-            <View style={styles.datePickerRow}>
-              <TouchableOpacity onPress={() => showDatePicker('start')} style={styles.datePickerButton}>
+            <View style={styles.datePickerContainer}>
+              <TouchableOpacity 
+                style={styles.datePickerButton}
+                onPress={() => showDatePickerModal('start')}
+              >
                 <Text style={styles.datePickerButtonText}>Start Date: {startDate.toLocaleDateString()}</Text>
               </TouchableOpacity>
-              {showStartDatePicker && (
+              {showDatePicker && dateType === 'start' && (
                 <DateTimePicker
                   testID="startDatePicker"
                   value={startDate}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => onDateChange(event, date, 'start')}
+                  display="default"
+                  onChange={(event, date) => handleDateChange(event, date, 'start')}
                 />
               )}
-              <TouchableOpacity onPress={() => showDatePicker('end')} style={styles.datePickerButton}>
+
+              <TouchableOpacity 
+                style={styles.datePickerButton}
+                onPress={() => showDatePickerModal('end')}
+              >
                 <Text style={styles.datePickerButtonText}>End Date: {endDate.toLocaleDateString()}</Text>
               </TouchableOpacity>
-              {showEndDatePicker && (
+              {showDatePicker && dateType === 'end' && (
                 <DateTimePicker
                   testID="endDatePicker"
                   value={endDate}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => onDateChange(event, date, 'end')}
+                  display="default"
+                  onChange={(event, date) => handleDateChange(event, date, 'end')}
                 />
               )}
             </View>
@@ -1077,7 +1099,7 @@ export default function ReportDetail({ route, navigation }) {
   const renderReportContentInner = () => {
     if (!reportData) return null;
     switch (reportType) {
-      case '1': // Monthly Interest Report
+      case '1': // Interest Report
         return (
           <View style={styles.section}>
             <View style={styles.summaryItem}>
@@ -1386,11 +1408,6 @@ export default function ReportDetail({ route, navigation }) {
     );
   };
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchReportDetail().finally(() => setRefreshing(false));
-  }, []);
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -1419,8 +1436,6 @@ export default function ReportDetail({ route, navigation }) {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          colors={['#007AFF']}
-          tintColor="#007AFF"
         />
       }
     >
@@ -1746,7 +1761,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
   },
-  datePickerRow: {
+  datePickerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginTop: 10,

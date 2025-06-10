@@ -136,20 +136,26 @@ router.get('/total-interest-by-range', authenticate, async (req, res) => {
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
-        query.date.$gte = new Date(startDate);
+        // Set start date to beginning of the day
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.date.$gte = start;
       }
       if (endDate) {
-        // Set the end date to the end of the day
+        // Set end date to end of the day
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
         query.date.$lte = end;
       }
     }
     
+    console.log('Interest query:', query); // Debug log
+    
     const allDistributions = await EarningsDistribution.find(query);
+    console.log('Found distributions:', allDistributions.length); // Debug log
     
     const totalInterest = allDistributions.reduce((sum, dist) => sum + dist.totalAmount, 0);
-    res.json({ totalInterest });
+    res.json({ totalInterest, distributions: allDistributions }); // Include distributions in response
   } catch (error) {
     console.error('Total interest by range error:', error);
     res.status(500).json({ message: 'Server error' });
