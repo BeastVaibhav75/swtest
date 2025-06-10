@@ -79,17 +79,7 @@ router.get('/share-value', authenticate, async (req, res) => {
       shareValue = baseShareValue + interestPerMember - expensesPerMember;
     }
 
-    // Debug log
-    console.log('[Share Value API]', {
-      fund: fund ? fund.totalFund : null,
-      totalMembers,
-      totalInterest,
-      totalExpenses,
-      shareValue,
-      baseShareValue: fund ? fund.totalFund / totalMembers : 0,
-      interestPerMember: totalInterest / totalMembers,
-      expensesPerMember: totalExpenses / totalMembers
-    });
+   
 
     res.json({ 
       shareValue, 
@@ -154,10 +144,10 @@ router.get('/total-interest-by-range', authenticate, async (req, res) => {
       }
     }
     
-    console.log('Interest query:', query); // Debug log
+    
     
     const allDistributions = await EarningsDistribution.find(query);
-    console.log('Found distributions:', allDistributions.length); // Debug log
+    
     
     const totalInterest = allDistributions.reduce((sum, dist) => sum + dist.totalAmount, 0);
     res.json({ totalInterest, distributions: allDistributions }); // Include distributions in response

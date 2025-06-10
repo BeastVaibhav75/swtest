@@ -36,6 +36,11 @@ export default function ReportDetail({ route, navigation }) {
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
 
+  const dateQueryParams = {
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+  };
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchReportDetail();
@@ -57,8 +62,6 @@ export default function ReportDetail({ route, navigation }) {
             fundAPI.getTotalInterestByRange(startDate.toISOString(), endDate.toISOString()),
             membersAPI.getAll(),
           ]);
-          
-          console.log('Interest response:', interestRes.data); // Debug log
           
           const totalInterest = interestRes.data?.totalInterest || 0;
           const distributions = interestRes.data?.distributions || [];
@@ -326,6 +329,7 @@ export default function ReportDetail({ route, navigation }) {
               totalCollection,
               totalInstallments: memberInstallments.length,
               installments: memberInstallments.map(inst => ({
+                memberName: inst.memberId?.name || 'Unknown',
                 amount: inst.amount,
                 date: inst.date,
               })),
@@ -661,7 +665,7 @@ export default function ReportDetail({ route, navigation }) {
                 <th>Total Amount</th>
                 <td>₹${reportData.totalAmount.toFixed(2)}</td>
               </tr>
-              ${viewType !== 'individual' ? `
+              ${reportData.viewType !== 'individual' ? `
                 <tr>
                   <th>Per Member</th>
                   <td>₹${reportData.perMemberAmount.toFixed(2)}</td>
@@ -673,7 +677,7 @@ export default function ReportDetail({ route, navigation }) {
               ` : ''}
             </table>
           </div>
-          ${viewType === 'collective' && reportData.members ? `
+          ${reportData.viewType === 'collective' && reportData.members ? `
             <h2>Member Details</h2>
             <table>
               <tr>
@@ -870,8 +874,6 @@ export default function ReportDetail({ route, navigation }) {
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .section { margin-bottom: 20px; }
             .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
             .app-logo { height: 50px; margin-right: 10px; }
             .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
@@ -893,95 +895,38 @@ export default function ReportDetail({ route, navigation }) {
           <h2 class="report-title">${reportData.title}</h2>
           <p class="report-date">Generated on: ${generatedDate}</p>
           ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
-
-          <div class="section">
+          <div class="summary">
             <h2>Summary</h2>
             <table>
-              ${viewType !== 'individual' ? `
-                <tr>
-                  <th>Total Members</th>
-                  <td>{reportData.totalMembers}</td>
-                </tr>
-                <tr>
-                  <th>Active Members</th>
-                  <td>{reportData.activeMembers}</td>
-                </tr>
-              ` : `
-                <tr>
-                  <th>Active Loans</th>
-                  <td>{reportData.activeLoans}</td>
-                </tr>
-                <tr>
-                  <th>Total Installments</th>
-                  <td>{reportData.totalInstallments}</td>
-                </tr>
-                ${reportData.lastActivity ? `
-                  <tr>
-                    <th>Last Activity</th>
-                    <td>{new Date(reportData.lastActivity).toLocaleDateString()}</td>
-                  </tr>
-                ` : ''}
-              `}
+              <tr>
+                <th>Total Members</th>
+                <td>${reportData.totalMembers}</td>
+              </tr>
+              <tr>
+                <th>Active Members</th>
+                <td>${reportData.activeMembers}</td>
+              </tr>
             </table>
           </div>
-
-          ${viewType !== 'individual' ? `
-            <div class="section">
-              <h2>Member Details</h2>
-              <table>
-                <tr>
-                  <th>Name</th>
-                  <th>Member ID</th>
-                  <th>Active Loans</th>
-                  <th>Total Installments</th>
-                  <th>Last Activity</th>
-                </tr>
-                ${reportData.members.map(member => `
-                  <tr>
-                    <td>{member.name}</td>
-                    <td>{member.memberId}</td>
-                    <td>{member.activeLoans}</td>
-                    <td>{member.totalInstallments}</td>
-                    <td>{member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : '-'}</td>
-                  </tr>
-                `).join('')}
-              </table>
-            </div>
-          ` : `
-            <div class="section">
-              <h2>Active Loans</h2>
-              <table>
-                <tr>
-                  <th>Amount</th>
-                  <th>Outstanding</th>
-                  <th>Date</th>
-                </tr>
-                ${reportData.loans.map(loan => `
-                  <tr>
-                    <td>₹{loan.amount.toFixed(2)}</td>
-                    <td>₹{loan.outstanding.toFixed(2)}</td>
-                    <td>{new Date(loan.date).toLocaleDateString()}</td>
-                  </tr>
-                `).join('')}
-              </table>
-            </div>
-
-            <div class="section">
-              <h2>Recent Installments</h2>
-              <table>
-                <tr>
-                  <th>Amount</th>
-                  <th>Date</th>
-                </tr>
-                ${reportData.installments.map(inst => `
-                  <tr>
-                    <td>₹{inst.amount.toFixed(2)}</td>
-                    <td>{new Date(inst.date).toLocaleDateString()}</td>
-                  </tr>
-                `).join('')}
-              </table>
-            </div>
-          `}
+          <h2>Member Details</h2>
+          <table>
+            <tr>
+              <th>Member Name</th>
+              <th>Member ID</th>
+              <th>Active Loans</th>
+              <th>Total Installments</th>
+              <th>Last Activity</th>
+            </tr>
+            ${reportData.members.map(member => `
+              <tr>
+                <td>${member.name}</td>
+                <td>${member.memberId}</td>
+                <td>${member.activeLoans}</td>
+                <td>${member.totalInstallments}</td>
+                <td>${member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : 'N/A'}</td>
+              </tr>
+            `).join('')}
+          </table>
         </body>
       </html>
     `;
@@ -1000,13 +945,39 @@ export default function ReportDetail({ route, navigation }) {
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .section { margin-bottom: 20px; }
-            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-            .app-logo { height: 50px; margin-right: 10px; }
-            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
-            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
-            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+            .app-header { 
+                position: relative;
+                height: 60px;
+                margin-bottom: 20px; 
+                padding-bottom: 10px; 
+                border-bottom: 1px solid #ccc; 
+            }
+            .app-logo { 
+                position: absolute; 
+                left: 0; top: 0;
+                height: 50px;
+            }
+            .app-name { 
+                position: absolute; 
+                left: 60px;
+                top: 10px;
+                font-size: 24px; 
+                font-weight: bold; 
+                color: #007AFF; 
+                margin: 0; 
+            }
+            .report-title { 
+                font-size: 20px; 
+                text-align: center; 
+                margin: 10px 0; 
+                margin-top: 60px;
+            }
+            .report-date { 
+                font-size: 14px; 
+                text-align: center; 
+                color: #666; 
+                margin-bottom: 20px; 
+            }
             .date-range { 
                 font-size: 12px; 
                 text-align: center; 
@@ -1023,38 +994,34 @@ export default function ReportDetail({ route, navigation }) {
           <h2 class="report-title">${reportData.title}</h2>
           <p class="report-date">Generated on: ${generatedDate}</p>
           ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
-
-          <div class="section">
+          <div class="summary">
             <h2>Summary</h2>
             <table>
               <tr>
                 <th>Total Collection</th>
-                <td>₹{reportData.totalCollection.toFixed(2)}</td>
+                <td>₹${reportData.totalCollection.toFixed(2)}</td>
               </tr>
               <tr>
                 <th>Total Installments</th>
-                <td>{reportData.totalInstallments}</td>
+                <td>${reportData.totalInstallments}</td>
               </tr>
             </table>
           </div>
-
-          <div class="section">
-            <h2>Recent Installments</h2>
-            <table>
+          <h2>Recent Installments</h2>
+          <table>
+            <tr>
+              <th>Member Name</th>
+              <th>Amount</th>
+              <th>Date</th>
+            </tr>
+            ${reportData.installments.map(inst => `
               <tr>
-                ${viewType !== 'individual' ? '<th>Member Name</th>' : ''}
-                <th>Amount</th>
-                <th>Date</th>
+                <td>${inst.memberName}</td>
+                <td>₹${inst.amount.toFixed(2)}</td>
+                <td>${new Date(inst.date).toLocaleDateString()}</td>
               </tr>
-              ${reportData.installments.map(inst => `
-                <tr>
-                  ${viewType !== 'individual' ? `<td>{inst.memberName}</td>` : ''}
-                  <td>₹{inst.amount.toFixed(2)}</td>
-                  <td>{new Date(inst.date).toLocaleDateString()}</td>
-                </tr>
-              `).join('')}
-            </table>
-          </div>
+            `).join('')}
+          </table>
         </body>
       </html>
     `;

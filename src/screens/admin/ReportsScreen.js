@@ -15,8 +15,8 @@ import { installmentsAPI, loansAPI, membersAPI } from '../../services/api';
 const reportItems = [
   {
     id: '1',
-    title: 'Monthly Interest Report',
-    description: 'View interest earned this month',
+    title: 'Interest Report',
+    description: 'View interest earned',
     icon: 'cash-multiple',
     color: '#34C759',
   },
