@@ -582,6 +582,13 @@ export default function ReportDetail({ route, navigation }) {
     const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
     const generatedDate = new Date().toLocaleDateString();
 
+    // Group distributions by type
+    const interestDistributions = reportData.distributions.filter(d => d.type === 'interest');
+    const deductionDistributions = reportData.distributions.filter(d => d.type === 'deduction');
+    
+    const totalInterest = interestDistributions.reduce((sum, d) => sum + d.totalAmount, 0);
+    const totalDeduction = deductionDistributions.reduce((sum, d) => sum + d.totalAmount, 0);
+
     return `
       <html>
         <head>
@@ -644,12 +651,20 @@ export default function ReportDetail({ route, navigation }) {
             <table>
               <tr>
                 <th>Total Interest</th>
-                <td>₹{reportData.totalAmount.toFixed(2)}</td>
+                <td>₹${totalInterest.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <th>Total Deduction</th>
+                <td>₹${totalDeduction.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <th>Total Amount</th>
+                <td>₹${reportData.totalAmount.toFixed(2)}</td>
               </tr>
               ${viewType !== 'individual' ? `
                 <tr>
                   <th>Per Member</th>
-                  <td>₹{reportData.perMemberAmount.toFixed(2)}</td>
+                  <td>₹${reportData.perMemberAmount.toFixed(2)}</td>
                 </tr>
                 <tr>
                   <th>Total Members</th>

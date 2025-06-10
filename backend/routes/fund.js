@@ -131,7 +131,12 @@ router.get('/total-interest-this-month', authenticate, async (req, res) => {
 router.get('/total-interest-by-range', authenticate, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const query = { type: 'interest' };
+    const query = { 
+      $or: [
+        { type: 'interest' },
+        { type: 'deduction' }
+      ]
+    };
 
     if (startDate || endDate) {
       query.date = {};
