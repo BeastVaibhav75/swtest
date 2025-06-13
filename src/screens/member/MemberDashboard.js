@@ -1,14 +1,14 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -63,7 +63,7 @@ export default function MemberDashboard({ navigation }) {
       ]);
 
       setInterestEarned(user.interestEarned || 0);
-      setShareValue(shareValueRes.data?.shareValue || 0);
+      setShareValue((investmentRes.data?.investmentBalance || 0) + (user.interestEarned || 0) - (shareValueRes.data?.expensesPerMember || 0));
       setInvestmentBalance(investmentRes.data?.investmentBalance || 0);
       setTotalExpenses(shareValueRes.data?.expensesPerMember || 0);
       setRecentInstallments(installmentsRes.data?.slice(0, 3) || []);
