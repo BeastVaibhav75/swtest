@@ -623,7 +623,7 @@ export default function ReportDetail({ route, navigation }) {
         </head>
         <body>
           <div class="header">
-            <img src="assets/images/logo.png" class="logo" />
+            <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
             <div class="title">${reportData.title}</div>
             <div class="date">Generated on: ${generatedDate}</div>
             <div class="date">Period: ${reportStartDate} to ${reportEndDate}</div>
@@ -672,7 +672,7 @@ export default function ReportDetail({ route, navigation }) {
           </head>
           <body>
             <div class="header">
-              <img src="assets/images/logo.png" class="logo" />
+              <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
               <div class="title">${reportData.title}</div>
               <div class="date">Generated on: ${generatedDate}</div>
             </div>
@@ -709,7 +709,7 @@ export default function ReportDetail({ route, navigation }) {
         </head>
         <body>
           <div class="header">
-            <img src="assets/images/logo.png" class="logo" />
+            <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
             <div class="title">${reportData.title}</div>
             <div class="date">Generated on: ${generatedDate}</div>
             ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
@@ -843,7 +843,7 @@ export default function ReportDetail({ route, navigation }) {
         </head>
         <body>
           <div class="header">
-            <img src="assets/images/logo.png" class="logo" />
+            <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
             <div class="title">${reportData.title}</div>
             <div class="date">Generated on: ${generatedDate}</div>
             ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
@@ -917,7 +917,7 @@ export default function ReportDetail({ route, navigation }) {
         </head>
         <body>
           <div class="header">
-            <img src="assets/images/logo.png" class="logo" />
+            <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
             <div class="title">${reportData.title}</div>
             <div class="date">Generated on: ${generatedDate}</div>
             ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
