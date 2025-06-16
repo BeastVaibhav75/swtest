@@ -586,112 +586,65 @@ export default function ReportDetail({ route, navigation }) {
     const reportEndDate = reportData.endDate ? new Date(reportData.endDate).toLocaleDateString() : 'N/A';
     const generatedDate = new Date().toLocaleDateString();
 
-    // Group distributions by type
-    const interestDistributions = reportData.distributions.filter(d => d.type === 'interest');
-    const deductionDistributions = reportData.distributions.filter(d => d.type === 'deduction');
-    
-    const totalInterest = interestDistributions.reduce((sum, d) => sum + d.totalAmount, 0);
-    const totalDeduction = deductionDistributions.reduce((sum, d) => sum + d.totalAmount, 0);
-
     return `
       <html>
         <head>
           <style>
-            body { font-family: Arial; }
-            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; }
-            .app-header { 
-                position: relative;
-                height: 60px;
-                margin-bottom: 20px; 
-                padding-bottom: 10px; 
-                border-bottom: 1px solid #ccc; 
+            body { font-family: Arial; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; position: relative; }
+            .logo { 
+              position: absolute;
+              right: 0;
+              top: 0;
+              width: 60px;
+              height: 60px;
             }
-            .app-logo { 
-                position: absolute; 
-                left: 0; top: 0;
-                height: 50px;
+            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+            .date { color: #666; margin-bottom: 20px; }
+            .section { margin-bottom: 30px; }
+            .total-interest {
+              font-size: 20px;
+              font-weight: bold;
+              margin-bottom: 20px;
+              padding: 15px;
+              background: #f8f8f8;
+              border-radius: 8px;
             }
-            .app-name { 
-                position: absolute; 
-                left: 60px;
-                top: 10px;
-                font-size: 24px; 
-                font-weight: bold; 
-                color: #007AFF; 
-                margin: 0; 
+            .distribution-list { margin-top: 20px; }
+            .distribution-item {
+              display: flex;
+              justify-content: space-between;
+              padding: 10px;
+              border-bottom: 1px solid #eee;
             }
-            .report-title { 
-                font-size: 20px; 
-                text-align: center; 
-                margin: 10px 0; 
-                margin-top: 60px;
-            }
-            .report-date { 
-                font-size: 14px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
-            .date-range { 
-                font-size: 12px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
+            .distribution-date { color: #666; }
+            .distribution-amount { font-weight: bold; }
           </style>
         </head>
         <body>
-          <div class="app-header">
-            <img src="assets/images/logo.png" class="app-logo" />
-            <h1 class="app-name">Swanidhi</h1>
+          <div class="header">
+            <img src="assets/images/logo.png" class="logo" />
+            <div class="title">${reportData.title}</div>
+            <div class="date">Generated on: ${generatedDate}</div>
+            <div class="date">Period: ${reportStartDate} to ${reportEndDate}</div>
           </div>
-          <h2 class="report-title">${reportData.title}</h2>
-          <p class="report-date">Generated on: ${generatedDate}</p>
-          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
-          <div class="summary">
-            <h2>Summary</h2>
-            <table>
-              <tr>
-                <th>Total Interest</th>
-                <td>₹${totalInterest.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <th>Total Deduction</th>
-                <td>₹${totalDeduction.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <th>Total Amount</th>
-                <td>₹${reportData.totalAmount.toFixed(2)}</td>
-              </tr>
-              ${reportData.viewType !== 'individual' ? `
-                <tr>
-                  <th>Per Member</th>
-                  <td>₹${reportData.perMemberAmount.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <th>Total Members</th>
-                  <td>${reportData.totalMembers}</td>
-                </tr>
-              ` : ''}
-            </table>
+
+          <div class="section">
+            <div class="total-interest">
+              Total Interest: ₹${(reportData.totalAmount || 0).toFixed(2)}
+            </div>
+            
+            ${(reportData.distributions || []).length > 0 ? `
+              <div class="distribution-list">
+                ${(reportData.distributions || []).map(dist => `
+                  <div class="distribution-item">
+                    <span class="distribution-date">${new Date(dist.date).toLocaleDateString()}</span>
+                    <span class="distribution-amount">₹${(dist.perMemberAmount || 0).toFixed(2)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
           </div>
-          ${reportData.viewType === 'collective' && reportData.members ? `
-            <h2>Member Details</h2>
-            <table>
-              <tr>
-                <th>Member Name</th>
-                <th>Amount</th>
-              </tr>
-              ${reportData.members.map(member => `
-                <tr>
-                  <td>${member.name}</td>
-                  <td>₹${member.amount.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </table>
-          ` : ''}
         </body>
       </html>
     `;
@@ -704,21 +657,25 @@ export default function ReportDetail({ route, navigation }) {
         <html>
           <head>
             <style>
-              body { font-family: Arial; }
-              .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-              .app-logo { height: 50px; margin-right: 10px; }
-              .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
-              .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
-              .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
+              body { font-family: Arial; padding: 20px; }
+              .header { text-align: center; margin-bottom: 30px; position: relative; }
+              .logo { 
+                position: absolute;
+                right: 0;
+                top: 0;
+                width: 60px;
+                height: 60px;
+              }
+              .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+              .date { color: #666; margin-bottom: 20px; }
             </style>
           </head>
           <body>
-            <div class="app-header">
-              <img src="assets/images/logo.png" class="app-logo" />
-              <h1 class="app-name">Swanidhi</h1>
+            <div class="header">
+              <img src="assets/images/logo.png" class="logo" />
+              <div class="title">${reportData.title}</div>
+              <div class="date">Generated on: ${generatedDate}</div>
             </div>
-            <h2 class="report-title">${reportData.title}</h2>
-            <p class="report-date">Generated on: ${generatedDate}</p>
             <p>${reportData.message}</p>
           </body>
         </html>
@@ -733,33 +690,30 @@ export default function ReportDetail({ route, navigation }) {
       <html>
         <head>
           <style>
-            body { font-family: Arial; }
+            body { font-family: Arial; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; position: relative; }
+            .logo { 
+              position: absolute;
+              right: 0;
+              top: 0;
+              width: 60px;
+              height: 60px;
+            }
+            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+            .date { color: #666; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .header { text-align: center; margin-bottom: 20px; }
             .section { margin-bottom: 20px; }
-            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-            .app-logo { height: 50px; margin-right: 10px; }
-            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
-            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
-            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
-            .date-range { 
-                font-size: 12px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
           </style>
         </head>
         <body>
-          <div class="app-header">
-            <img src="assets/images/logo.png" class="app-logo" />
-            <h1 class="app-name">Swanidhi</h1>
+          <div class="header">
+            <img src="assets/images/logo.png" class="logo" />
+            <div class="title">${reportData.title}</div>
+            <div class="date">Generated on: ${generatedDate}</div>
+            ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
           </div>
-          <h2 class="report-title">${reportData.title}</h2>
-          <p class="report-date">Generated on: ${generatedDate}</p>
-          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
 
           <div class="section">
             <h2>Member Information</h2>
@@ -830,7 +784,7 @@ export default function ReportDetail({ route, navigation }) {
                 <th>Principal</th>
                 <th>Interest</th>
               </tr>
-              ${reportData.loanDetails.paymentHistory.map(payment => `
+              ${(reportData.loanDetails.paymentHistory || []).map(payment => `
                 <tr>
                   <td>${new Date(payment.date).toLocaleDateString()}</td>
                   <td>${payment.installmentNumber}</td>
@@ -870,32 +824,32 @@ export default function ReportDetail({ route, navigation }) {
       <html>
         <head>
           <style>
-            body { font-family: Arial; }
+            body { font-family: Arial; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; position: relative; }
+            .logo { 
+              position: absolute;
+              right: 0;
+              top: 0;
+              width: 60px;
+              height: 60px;
+            }
+            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+            .date { color: #666; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .app-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-            .app-logo { height: 50px; margin-right: 10px; }
-            .app-name { font-size: 24px; font-weight: bold; color: #007AFF; margin: 0; }
-            .report-title { font-size: 20px; text-align: center; margin: 10px 0; }
-            .report-date { font-size: 14px; text-align: center; color: #666; margin-bottom: 20px; }
-            .date-range { 
-                font-size: 12px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
+            .section { margin-bottom: 20px; }
           </style>
         </head>
         <body>
-          <div class="app-header">
-            <img src="assets/images/logo.png" class="app-logo" />
-            <h1 class="app-name">Swanidhi</h1>
+          <div class="header">
+            <img src="assets/images/logo.png" class="logo" />
+            <div class="title">${reportData.title}</div>
+            <div class="date">Generated on: ${generatedDate}</div>
+            ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
           </div>
-          <h2 class="report-title">${reportData.title}</h2>
-          <p class="report-date">Generated on: ${generatedDate}</p>
-          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
-          <div class="summary">
+
+          <div class="section">
             <h2>Summary</h2>
             <table>
               <tr>
@@ -908,25 +862,28 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
             </table>
           </div>
-          <h2>Member Details</h2>
-          <table>
-            <tr>
-              <th>Member Name</th>
-              <th>Member ID</th>
-              <th>Active Loans</th>
-              <th>Total Installments</th>
-              <th>Last Activity</th>
-            </tr>
-            ${reportData.members.map(member => `
+
+          <div class="section">
+            <h2>Member Details</h2>
+            <table>
               <tr>
-                <td>${member.name}</td>
-                <td>${member.memberId}</td>
-                <td>${member.activeLoans}</td>
-                <td>${member.totalInstallments}</td>
-                <td>${member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : 'N/A'}</td>
+                <th>Member Name</th>
+                <th>Member ID</th>
+                <th>Active Loans</th>
+                <th>Total Installments</th>
+                <th>Last Activity</th>
               </tr>
-            `).join('')}
-          </table>
+              ${(reportData.members || []).map(member => `
+                <tr>
+                  <td>${member.name}</td>
+                  <td>${member.memberId}</td>
+                  <td>${member.activeLoans}</td>
+                  <td>${member.totalInstallments}</td>
+                  <td>${member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
         </body>
       </html>
     `;
@@ -941,60 +898,32 @@ export default function ReportDetail({ route, navigation }) {
       <html>
         <head>
           <style>
-            body { font-family: Arial; }
+            body { font-family: Arial; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; position: relative; }
+            .logo { 
+              position: absolute;
+              right: 0;
+              top: 0;
+              width: 60px;
+              height: 60px;
+            }
+            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+            .date { color: #666; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; }
-            .app-header { 
-                position: relative;
-                height: 60px;
-                margin-bottom: 20px; 
-                padding-bottom: 10px; 
-                border-bottom: 1px solid #ccc; 
-            }
-            .app-logo { 
-                position: absolute; 
-                left: 0; top: 0;
-                height: 50px;
-            }
-            .app-name { 
-                position: absolute; 
-                left: 60px;
-                top: 10px;
-                font-size: 24px; 
-                font-weight: bold; 
-                color: #007AFF; 
-                margin: 0; 
-            }
-            .report-title { 
-                font-size: 20px; 
-                text-align: center; 
-                margin: 10px 0; 
-                margin-top: 60px;
-            }
-            .report-date { 
-                font-size: 14px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
-            .date-range { 
-                font-size: 12px; 
-                text-align: center; 
-                color: #666; 
-                margin-bottom: 20px; 
-            }
+            .section { margin-bottom: 20px; }
           </style>
         </head>
         <body>
-          <div class="app-header">
-            <img src="assets/images/logo.png" class="app-logo" />
-            <h1 class="app-name">Swanidhi</h1>
+          <div class="header">
+            <img src="assets/images/logo.png" class="logo" />
+            <div class="title">${reportData.title}</div>
+            <div class="date">Generated on: ${generatedDate}</div>
+            ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
           </div>
-          <h2 class="report-title">${reportData.title}</h2>
-          <p class="report-date">Generated on: ${generatedDate}</p>
-          ${reportData.startDate ? `<p class="date-range">Date Range: ${reportStartDate} - ${reportEndDate}</p>` : ''}
-          <div class="summary">
+
+          <div class="section">
             <h2>Summary</h2>
             <table>
               <tr>
@@ -1007,21 +936,24 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
             </table>
           </div>
-          <h2>Recent Installments</h2>
-          <table>
-            <tr>
-              <th>Member Name</th>
-              <th>Amount</th>
-              <th>Date</th>
-            </tr>
-            ${reportData.installments.map(inst => `
+
+          <div class="section">
+            <h2>Recent Installments</h2>
+            <table>
               <tr>
-                <td>${inst.memberName}</td>
-                <td>₹${inst.amount.toFixed(2)}</td>
-                <td>${new Date(inst.date).toLocaleDateString()}</td>
+                <th>Member Name</th>
+                <th>Amount</th>
+                <th>Date</th>
               </tr>
-            `).join('')}
-          </table>
+              ${(reportData.installments || []).map(inst => `
+                <tr>
+                  <td>${inst.memberName}</td>
+                  <td>₹${inst.amount.toFixed(2)}</td>
+                  <td>${new Date(inst.date).toLocaleDateString()}</td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
         </body>
       </html>
     `;
@@ -1110,7 +1042,22 @@ export default function ReportDetail({ route, navigation }) {
                 {reportData.members.map((member, index) => (
                   <View key={index} style={styles.memberItem}>
                     <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.memberAmount}>₹${member.amount.toFixed(2)}</Text>
+                    <Text style={styles.memberAmount}>₹{member.amount.toFixed(2)}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+            {viewType === 'individual' && reportData.distributions && (
+              <>
+                <Text style={styles.sectionTitle}>Distribution History</Text>
+                {reportData.distributions.map((dist, index) => (
+                  <View key={index} style={styles.distributionItem}>
+                    <Text style={styles.distributionDate}>
+                      {new Date(dist.date).toLocaleDateString()}
+                    </Text>
+                    <Text style={styles.distributionAmount}>
+                      ₹{dist.perMemberAmount.toFixed(2)}
+                    </Text>
                   </View>
                 ))}
               </>
@@ -1757,5 +1704,22 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  distributionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  distributionDate: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  distributionAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
   },
 }); 
