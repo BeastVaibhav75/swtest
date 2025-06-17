@@ -45,6 +45,7 @@ export default function MemberDashboard({ navigation }) {
   const [recentInstallments, setRecentInstallments] = useState([]);
   const [loans, setLoans] = useState(0);
   const [totalFund, setTotalFund] = useState(0);
+  const [monthlyInterestEarned, setMonthlyInterestEarned] = useState(0);
   const { updating } = useUpdateCheck();
 
   const fetchDashboardData = async () => {
@@ -73,6 +74,25 @@ export default function MemberDashboard({ navigation }) {
       setRecentInstallments(installmentsRes.data?.slice(0, 3) || []);
       setLoans(loansRes.data?.totalOutstanding || 0);
       setTotalFund(totalFundRes.data?.totalFund || 0);
+
+      // Calculate monthly interest earned for the member
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      const monthlyDistributions = (interestRes.data.distributions || []).filter(dist => {
+        const distDate = new Date(dist.date);
+        return distDate >= firstDay && distDate <= lastDay;
+      });
+
+      const calculatedMonthlyInterest = monthlyDistributions.reduce((sum, dist) => {
+        if (dist.type === 'interest' || dist.type === 'deduction') {
+          return sum + (dist.perMemberAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      setMonthlyInterestEarned(calculatedMonthlyInterest);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -103,6 +123,7 @@ export default function MemberDashboard({ navigation }) {
       setRecentInstallments([]);
       setLoans(0);
       setTotalFund(0);
+      setMonthlyInterestEarned(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -189,19 +210,18 @@ export default function MemberDashboard({ navigation }) {
               <Text style={styles.breakdownValue}>₹{totalFund.toFixed(2)}</Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>- Total Loans</Text>
+              <Text style={styles.breakdownLabel}>Total Loans</Text>
               <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{loans.toFixed(2)}</Text>
-            </View>
-            <View style={[styles.breakdownRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>= Cash in Hand</Text>
-              <Text style={[styles.breakdownValue, styles.totalValue]}>₹{(totalFund - loans).toFixed(2)}</Text>
             </View>
           </View>
         </View>
 
         {/* Balance Breakdown Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Balance Breakdown</Text>
+          <Text style={styles.sectionTitle}>Your Share Value</Text>
+          <View style={styles.cashInHandValueContainer}>
+            <Text style={styles.cashInHandValue}>₹{shareValue.toFixed(2)}</Text>
+          </View>
           <View style={styles.breakdownContainer}>
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Your Investment</Text>
@@ -211,13 +231,19 @@ export default function MemberDashboard({ navigation }) {
               <Text style={styles.breakdownLabel}>Interest Earned</Text>
               <Text style={[styles.breakdownValue, styles.positiveValue]}>+ ₹{interestEarned.toFixed(2)}</Text>
             </View>
-          
-            <View style={[styles.breakdownRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Your Share Value</Text>
-              <Text style={[styles.breakdownValue, styles.totalValue]}>₹{shareValue.toFixed(2)}</Text>
-            </View>
           </View>
         </View>
+
+        {/* Profit Section */}
+        <TouchableOpacity 
+          style={styles.section}
+          onPress={() => navigation.navigate('MemberTabs', { screen: 'Earnings' })}
+        >
+          <Text style={styles.sectionTitle}>Profit (This Month)</Text>
+          <View style={styles.cashInHandValueContainer}>
+            <Text style={[styles.cashInHandValue, styles.positiveValue]}>+ ₹{monthlyInterestEarned.toFixed(2)}</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Recent Installments Section */}
         <View style={styles.section}>
@@ -428,7 +454,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   cashInHandValue: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#007AFF',
   },
