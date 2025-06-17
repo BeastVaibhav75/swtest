@@ -56,6 +56,18 @@ router.get('/my-loans', authenticate, async (req, res) => {
   }
 });
 
+// Get total outstanding loans (accessible to all authenticated users)
+router.get('/total-outstanding', authenticate, async (req, res) => {
+  try {
+    const allLoans = await Loan.find({}); // Fetch all loans
+    const totalOutstanding = allLoans.reduce((sum, loan) => sum + (loan.outstanding || 0), 0);
+    res.json({ totalOutstanding });
+  } catch (error) {
+    console.error('Error fetching total outstanding loans:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create new loan
 router.post('/', authenticate, isAdmin, async (req, res) => {
   try {

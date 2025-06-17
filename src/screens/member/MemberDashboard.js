@@ -1,19 +1,19 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
-import { fundAPI, installmentsAPI } from '../../services/api';
+import { fundAPI, installmentsAPI, loansAPI } from '../../services/api';
 
 // Mock data for testing
 const mockMemberData = {
@@ -43,6 +43,8 @@ export default function MemberDashboard({ navigation }) {
   const [error, setError] = useState(null);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [recentInstallments, setRecentInstallments] = useState([]);
+  const [loans, setLoans] = useState(0);
+  const [totalFund, setTotalFund] = useState(0);
   const { updating } = useUpdateCheck();
 
   const fetchDashboardData = async () => {
@@ -55,11 +57,13 @@ export default function MemberDashboard({ navigation }) {
       console.log('Fetching dashboard data for user:', user._id);
       
       // Fetch all data in parallel
-      const [interestRes, shareValueRes, investmentRes, installmentsRes] = await Promise.all([
+      const [interestRes, shareValueRes, investmentRes, installmentsRes, loansRes, totalFundRes] = await Promise.all([
         fundAPI.getInterest(user._id),
         fundAPI.getShareValue(),
         fundAPI.getInvestment(user._id),
-        installmentsAPI.getMyInstallments()
+        installmentsAPI.getMyInstallments(),
+        loansAPI.getTotalOutstanding(),
+        fundAPI.getTotalFund()
       ]);
 
       setInterestEarned(user.interestEarned || 0);
@@ -67,6 +71,8 @@ export default function MemberDashboard({ navigation }) {
       setInvestmentBalance(investmentRes.data?.investmentBalance || 0);
       setTotalExpenses(shareValueRes.data?.expensesPerMember || 0);
       setRecentInstallments(installmentsRes.data?.slice(0, 3) || []);
+      setLoans(loansRes.data?.totalOutstanding || 0);
+      setTotalFund(totalFundRes.data?.totalFund || 0);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -95,6 +101,8 @@ export default function MemberDashboard({ navigation }) {
       setInvestmentBalance(0);
       setTotalExpenses(0);
       setRecentInstallments([]);
+      setLoans(0);
+      setTotalFund(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -166,6 +174,29 @@ export default function MemberDashboard({ navigation }) {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Member Dashboard</Text>
           <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Member'}</Text>
+        </View>
+
+        {/* Cash in Hand Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cash in Hand</Text>
+          <View style={styles.cashInHandValueContainer}>
+            <Text style={styles.cashInHandValue}>₹{(totalFund - loans).toFixed(2)}</Text>
+          </View>
+
+          <View style={styles.breakdownContainer}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Total Fund</Text>
+              <Text style={styles.breakdownValue}>₹{totalFund.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>- Total Loans</Text>
+              <Text style={[styles.breakdownValue, styles.negativeValue]}>- ₹{loans.toFixed(2)}</Text>
+            </View>
+            <View style={[styles.breakdownRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>= Cash in Hand</Text>
+              <Text style={[styles.breakdownValue, styles.totalValue]}>₹{(totalFund - loans).toFixed(2)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Balance Breakdown Section */}
@@ -251,151 +282,131 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#666',
+    fontSize: 16,
+    color: '#555',
   },
   header: {
-    backgroundColor: '#007AFF',
     padding: 20,
-    paddingTop: 40,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 10,
+    backgroundColor: '#007AFF',
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
+    alignItems: 'center',
+    marginBottom: 15,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 5,
+    color: '#fff',
   },
   headerSubtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#fff',
+    marginTop: 5,
   },
   section: {
-    backgroundColor: 'white',
-    margin: 10,
-    padding: 15,
+    backgroundColor: '#fff',
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    marginHorizontal: 15,
     marginBottom: 15,
-  },
-  breakdownContainer: {
-    backgroundColor: '#f8f8f8',
     padding: 15,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  positiveValue: {
-    color: '#34C759',
-  },
-  negativeValue: {
-    color: '#FF3B30',
-  },
-  totalRow: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 10,
-    marginBottom: 20,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
   },
-  viewAllButton: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  breakdownContainer: {
+    marginTop: 5,
+  },
+  breakdownRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  viewAllText: {
+  breakdownLabel: {
+    fontSize: 16,
+    color: '#555',
+  },
+  breakdownValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  positiveValue: {
+    color: '#28a745',
+  },
+  negativeValue: {
+    color: '#dc3545',
+  },
+  totalRow: {
+    borderTopWidth: 2,
+    borderTopColor: '#007AFF',
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  totalLabel: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalValue: {
+    fontSize: 17,
+    fontWeight: 'bold',
     color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 4,
+  },
+  noData: {
+    fontStyle: 'italic',
+    color: '#888',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
   installmentItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   installmentDate: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 15,
     fontWeight: '500',
+    color: '#333',
   },
   installmentType: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontSize: 13,
+    color: '#888',
   },
   installmentAmount: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: 'bold',
     color: '#007AFF',
   },
-  noData: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    padding: 20,
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    backgroundColor: '#e6f2ff',
+  },
+  viewAllText: {
+    color: '#007AFF',
+    marginRight: 5,
+    fontWeight: '600',
   },
   updateOverlay: {
     position: 'absolute',
@@ -403,14 +414,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
+    alignItems: 'center'
   },
   updateText: {
     color: '#FFFFFF',
     marginTop: 10,
     fontSize: 16,
+  },
+  cashInHandValueContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  cashInHandValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#007AFF',
   },
 }); 

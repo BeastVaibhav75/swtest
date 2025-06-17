@@ -72,6 +72,7 @@ export const loansAPI = {
   getAll: () => api.get('/loans'),
   getByMember: (memberId) => api.get(`/loans/member/${memberId}`),
   getMyLoans: () => api.get('/loans/my-loans'),
+  getTotalOutstanding: () => api.get('/loans/total-outstanding'),
   create: (loanData) => api.post('/loans', loanData),
   addRepayment: (loanId, amount) => api.post(`/loans/${loanId}/repayment`, { amount }),
   update: (loanId, data) => api.patch(`/loans/${loanId}`, data),

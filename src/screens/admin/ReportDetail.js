@@ -1,13 +1,13 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -476,108 +476,121 @@ export default function ReportDetail({ route, navigation }) {
     setShowDatePicker(true);
   };
 
-  const generatePDF = async () => {
+  const handleDownload = async () => {
     try {
       setLoading(true);
+      
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant storage permission to download the report.');
+        return;
+      }
 
-      // Generate HTML content based on report type
       let htmlContent = '';
-      switch (reportType) {
-        case '1':
+      switch (reportData.type) {
+        case 'monthlyInterest':
           htmlContent = generateMonthlyInterestPDF();
           break;
-        case '2':
+        case 'loanStatus':
           htmlContent = generateLoanStatusPDF();
           break;
-        case '3':
+        case 'memberActivity':
           htmlContent = generateMemberActivityPDF();
           break;
-        case '4':
+        case 'installmentCollection':
           htmlContent = generateInstallmentCollectionPDF();
           break;
         default:
           throw new Error('Invalid report type');
       }
 
-      // Always generate PDF
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
         width: 612, // US Letter width in points
         height: 792, // US Letter height in points
-        base64: false
       });
-      return { filePath: uri, isHtml: false };
+
+      // Create a unique filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${reportData.title.replace(/\s+/g, '_')}_${timestamp}.pdf`;
+      const destination = `${FileSystem.documentDirectory}${filename}`;
+
+      // Copy the file to the documents directory
+      await FileSystem.copyAsync({
+        from: uri,
+        to: destination
+      });
+
+      // Save to media library
+      const asset = await MediaLibrary.createAssetAsync(destination);
+      await MediaLibrary.createAlbumAsync('Swanidhi Reports', asset, false);
+
+      Alert.alert(
+        'Success',
+        'Report has been downloaded successfully!',
+        [
+          {
+            text: 'Open',
+            onPress: () => Sharing.shareAsync(destination)
+          },
+          {
+            text: 'OK',
+            style: 'cancel'
+          }
+        ]
+      );
     } catch (error) {
-      console.error('Report Generation Error:', error);
-      Alert.alert('Error', 'Failed to generate report: ' + error.message);
-      return null;
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download report. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownload = async () => {
-    try {
-      console.log('Starting download process...');
-      const result = await generatePDF();
-      
-      if (result) {
-        if (await Sharing.isAvailableAsync()) {
-          // For download, we'll save to downloads folder on Android
-          if (Platform.OS === 'android') {
-            const downloadsPath = `${FileSystem.documentDirectory}Downloads/`;
-            const newPath = `${downloadsPath}${reportData.title.replace(/\s+/g, '_')}_${new Date().getTime()}.${result.isHtml ? 'html' : 'pdf'}`;
-            
-            // Create Downloads directory if it doesn't exist
-            const dirInfo = await FileSystem.getInfoAsync(downloadsPath);
-            if (!dirInfo.exists) {
-              await FileSystem.makeDirectoryAsync(downloadsPath, { intermediates: true });
-            }
-            
-            // Copy file to Downloads
-            await FileSystem.copyAsync({
-              from: result.filePath,
-              to: newPath
-            });
-            
-            Alert.alert('Success', 'Report saved to Downloads folder');
-          } else {
-            // For iOS, we'll use the share sheet with save option
-            await Sharing.shareAsync(result.filePath, {
-              mimeType: result.isHtml ? 'text/html' : 'application/pdf',
-              dialogTitle: 'Save Report',
-              UTI: result.isHtml ? 'public.html' : 'com.adobe.pdf'
-            });
-          }
-        } else {
-          Alert.alert('Error', 'Sharing is not available on this device');
-        }
-      }
-    } catch (error) {
-      console.error('Download Error:', error);
-      Alert.alert('Error', 'Failed to download report');
-    }
-  };
-
   const handleShare = async () => {
     try {
-      console.log('Starting share process...');
-      const result = await generatePDF();
+      setLoading(true);
       
-      if (result) {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(result.filePath, {
-            mimeType: result.isHtml ? 'text/html' : 'application/pdf',
-            dialogTitle: 'Share Report',
-            UTI: result.isHtml ? 'public.html' : 'com.adobe.pdf'
-          });
-        } else {
-          Alert.alert('Error', 'Sharing is not available on this device');
-        }
+      let htmlContent = '';
+      switch (reportData.type) {
+        case 'monthlyInterest':
+          htmlContent = generateMonthlyInterestPDF();
+          break;
+        case 'loanStatus':
+          htmlContent = generateLoanStatusPDF();
+          break;
+        case 'memberActivity':
+          htmlContent = generateMemberActivityPDF();
+          break;
+        case 'installmentCollection':
+          htmlContent = generateInstallmentCollectionPDF();
+          break;
+        default:
+          throw new Error('Invalid report type');
       }
+
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        width: 612,
+        height: 792,
+      });
+
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Sharing not available', 'Sharing is not available on this device');
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share Report',
+        UTI: 'com.adobe.pdf'
+      });
     } catch (error) {
-      console.error('Share Error:', error);
-      Alert.alert('Error', 'Failed to share report');
+      console.error('Share error:', error);
+      Alert.alert('Error', 'Failed to share report. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -844,7 +857,7 @@ export default function ReportDetail({ route, navigation }) {
         <body>
           <div class="header">
             <img src="https://raw.githubusercontent.com/BeastVaibhav75/swtest/main/assets/images/logo.png" class="logo" />
-            <div class="title">${reportData.title}</div>
+            <div class="title">${reportData.title || 'Member Activity Report'}</div>
             <div class="date">Generated on: ${generatedDate}</div>
             ${reportData.startDate ? `<div class="date">Date Range: ${reportStartDate} - ${reportEndDate}</div>` : ''}
           </div>
@@ -854,11 +867,11 @@ export default function ReportDetail({ route, navigation }) {
             <table>
               <tr>
                 <th>Total Members</th>
-                <td>${reportData.totalMembers}</td>
+                <td>${reportData.totalMembers || 0}</td>
               </tr>
               <tr>
                 <th>Active Members</th>
-                <td>${reportData.activeMembers}</td>
+                <td>${reportData.activeMembers || 0}</td>
               </tr>
             </table>
           </div>
@@ -875,10 +888,10 @@ export default function ReportDetail({ route, navigation }) {
               </tr>
               ${(reportData.members || []).map(member => `
                 <tr>
-                  <td>${member.name}</td>
-                  <td>${member.memberId}</td>
-                  <td>${member.activeLoans}</td>
-                  <td>${member.totalInstallments}</td>
+                  <td>${member.name || 'N/A'}</td>
+                  <td>${member.memberId || 'N/A'}</td>
+                  <td>${member.activeLoans || 0}</td>
+                  <td>${member.totalInstallments || 0}</td>
                   <td>${member.lastActivity ? new Date(member.lastActivity).toLocaleDateString() : 'N/A'}</td>
                 </tr>
               `).join('')}
