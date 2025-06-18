@@ -253,10 +253,13 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
     const installments = await Installment.find().populate('memberId', 'name memberId');
     const members = await User.find({ role: 'member' });
     
+    // Standard installment amount
+    const STANDARD_INSTALLMENT_AMOUNT = 1000;
+    
     // Calculate totals
     const totalInstallments = installments.length;
     const totalAmount = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
-    const expectedAmount = 92 * 1000; // 92 installments of ₹1000 each
+    const expectedAmount = totalInstallments * STANDARD_INSTALLMENT_AMOUNT; // Dynamic calculation
     const difference = totalAmount - expectedAmount;
     
     // Group by member
@@ -300,7 +303,7 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
     });
     
     // Find non-standard installments (not ₹1000)
-    const nonStandardInstallments = installments.filter(inst => inst.amount !== 1000);
+    const nonStandardInstallments = installments.filter(inst => inst.amount !== STANDARD_INSTALLMENT_AMOUNT);
     
     res.json({
       summary: {
@@ -309,7 +312,8 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
         expectedAmount,
         difference,
         totalMembers: members.length,
-        expectedMembers: 46 // 92 ÷ 2 = 46
+        expectedMembers: 46, // 92 ÷ 2 = 46
+        standardInstallmentAmount: STANDARD_INSTALLMENT_AMOUNT
       },
       memberInstallments,
       membersWithoutInstallments: membersWithoutInstallments.map(m => ({

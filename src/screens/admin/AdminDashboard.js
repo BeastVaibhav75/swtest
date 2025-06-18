@@ -43,6 +43,8 @@ export default function AdminDashboard() {
   const [cashInHand, setCashInHand] = useState(0);
   const [totalLoans, setTotalLoans] = useState(0);
   const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
+  const [diagnosticData, setDiagnosticData] = useState(null);
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
   const navigation = useNavigation();
   const route = useRoute();
   const { user, logout } = useAuth();
@@ -410,34 +412,14 @@ export default function AdminDashboard() {
               <Text style={styles.actionButtonText}>Add Expense</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.actionButtonsBottomRow}>
+          <View style={styles.actionButtonsBottomRowSpaced}>
             <TouchableOpacity 
               style={[styles.actionButton, styles.bottomButton, { backgroundColor: '#FF9500' }]} 
               onPress={async () => {
                 try {
                   const response = await installmentsAPI.diagnostic();
-                  Alert.alert(
-                    'Installments Diagnostic',
-                    `Total Installments: ${response.data.summary.totalInstallments}\n` +
-                    `Total Amount: ₹${response.data.summary.totalAmount.toFixed(2)}\n` +
-                    `Expected Amount: ₹${response.data.summary.expectedAmount.toFixed(2)}\n` +
-                    `Difference: ₹${response.data.summary.difference.toFixed(2)}\n\n` +
-                    `Total Members: ${response.data.summary.totalMembers}\n` +
-                    `Expected Members: ${response.data.summary.expectedMembers}\n\n` +
-                    `Members without installments: ${response.data.membersWithoutInstallments.length}\n` +
-                    `Members with 1 installment: ${response.data.membersWithOneInstallment.length}\n` +
-                    `Non-standard installments: ${response.data.nonStandardInstallments.length}`,
-                    [
-                      { text: 'OK' },
-                      { 
-                        text: 'View Details', 
-                        onPress: () => {
-                          console.log('Installments Diagnostic:', JSON.stringify(response.data, null, 2));
-                          Alert.alert('Details logged to console');
-                        }
-                      }
-                    ]
-                  );
+                  setDiagnosticData(response.data);
+                  setShowDiagnosticModal(true);
                 } catch (error) {
                   Alert.alert('Error', 'Failed to get diagnostic data');
                 }
@@ -503,6 +485,98 @@ export default function AdminDashboard() {
                 ) : (
                   <Text style={styles.modalButtonText}>Add Expense</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Diagnostic Modal */}
+        <Modal
+          visible={showDiagnosticModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDiagnosticModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Installments Diagnostic</Text>
+                <TouchableOpacity onPress={() => setShowDiagnosticModal(false)}>
+                  <Icon name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.diagnosticScrollView}>
+                <View style={styles.diagnosticContainer}>
+                  <Text style={styles.diagnosticSectionTitle}>Summary</Text>
+                  <Text style={styles.diagnosticLabel}>Total Installments: {diagnosticData?.summary.totalInstallments}</Text>
+                  <Text style={styles.diagnosticLabel}>Total Amount: ₹{diagnosticData?.summary.totalAmount.toFixed(2)}</Text>
+                  <Text style={styles.diagnosticLabel}>Expected Amount: ₹{diagnosticData?.summary.expectedAmount.toFixed(2)}</Text>
+                  <Text style={[styles.diagnosticLabel, { color: diagnosticData?.summary.difference !== 0 ? '#FF3B30' : '#34C759' }]}>
+                    Difference: ₹{diagnosticData?.summary.difference.toFixed(2)}
+                  </Text>
+                  <Text style={styles.diagnosticLabel}>Total Members: {diagnosticData?.summary.totalMembers}</Text>
+                  <Text style={styles.diagnosticLabel}>Expected Members: {diagnosticData?.summary.expectedMembers}</Text>
+                  <Text style={styles.diagnosticLabel}>Standard Amount: ₹{diagnosticData?.summary.standardInstallmentAmount}</Text>
+                </View>
+
+                {diagnosticData?.membersWithoutInstallments.length > 0 && (
+                  <View style={styles.diagnosticContainer}>
+                    <Text style={styles.diagnosticSectionTitle}>Members Without Installments ({diagnosticData.membersWithoutInstallments.length})</Text>
+                    {diagnosticData.membersWithoutInstallments.map((member, index) => (
+                      <Text key={index} style={styles.diagnosticItem}>
+                        • {member.name} ({member.memberId})
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {diagnosticData?.membersWithOneInstallment.length > 0 && (
+                  <View style={styles.diagnosticContainer}>
+                    <Text style={styles.diagnosticSectionTitle}>Members With Only 1 Installment ({diagnosticData.membersWithOneInstallment.length})</Text>
+                    {diagnosticData.membersWithOneInstallment.map((member, index) => (
+                      <Text key={index} style={styles.diagnosticItem}>
+                        • {member.name} ({member.memberId})
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {diagnosticData?.nonStandardInstallments.length > 0 && (
+                  <View style={styles.diagnosticContainer}>
+                    <Text style={styles.diagnosticSectionTitle}>Non-Standard Installments ({diagnosticData.nonStandardInstallments.length})</Text>
+                    {diagnosticData.nonStandardInstallments.map((inst, index) => (
+                      <View key={index} style={styles.nonStandardItem}>
+                        <Text style={styles.diagnosticItem}>
+                          • {inst.memberName} ({inst.memberId})
+                        </Text>
+                        <Text style={[styles.diagnosticItem, { color: '#FF3B30' }]}>
+                          Amount: ₹{inst.amount} (Expected: ₹{diagnosticData.summary.standardInstallmentAmount})
+                        </Text>
+                        <Text style={styles.diagnosticItem}>
+                          Date: {new Date(inst.date).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {diagnosticData?.summary.difference === 0 && 
+                 diagnosticData?.membersWithoutInstallments.length === 0 && 
+                 diagnosticData?.membersWithOneInstallment.length === 0 && 
+                 diagnosticData?.nonStandardInstallments.length === 0 && (
+                  <View style={styles.diagnosticContainer}>
+                    <Text style={[styles.diagnosticSectionTitle, { color: '#34C759' }]}>✅ All Installments Are Correct!</Text>
+                    <Text style={styles.diagnosticLabel}>No discrepancies found in the installments data.</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowDiagnosticModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -646,6 +720,10 @@ const styles = StyleSheet.create({
   actionButtonsBottomRow: {
     alignItems: 'center',
   },
+  actionButtonsBottomRowSpaced: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
   actionButton: {
     flex: 1,
     backgroundColor: '#007AFF',
@@ -760,5 +838,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 10,
     fontSize: 16,
+  },
+  diagnosticContainer: {
+    marginBottom: 20,
+  },
+  diagnosticLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 5,
+  },
+  diagnosticSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  diagnosticItem: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  nonStandardItem: {
+    backgroundColor: '#f8f8f8',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 8,
+  },
+  diagnosticScrollView: {
+    maxHeight: '80%',
   },
 }); 
