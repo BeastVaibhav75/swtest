@@ -89,6 +89,7 @@ export const installmentsAPI = {
   create: (installmentData) => api.post('/installments', installmentData),
   update: (installmentId, data) => api.patch(`/installments/${installmentId}`, data),
   delete: (installmentId) => api.delete(`/installments/${installmentId}`),
+  diagnostic: () => api.get('/installments/diagnostic'),
 };
 
 // Expenses API

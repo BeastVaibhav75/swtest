@@ -410,6 +410,42 @@ export default function AdminDashboard() {
               <Text style={styles.actionButtonText}>Add Expense</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.actionButtonsBottomRow}>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.bottomButton, { backgroundColor: '#FF9500' }]} 
+              onPress={async () => {
+                try {
+                  const response = await installmentsAPI.diagnostic();
+                  Alert.alert(
+                    'Installments Diagnostic',
+                    `Total Installments: ${response.data.summary.totalInstallments}\n` +
+                    `Total Amount: ₹${response.data.summary.totalAmount.toFixed(2)}\n` +
+                    `Expected Amount: ₹${response.data.summary.expectedAmount.toFixed(2)}\n` +
+                    `Difference: ₹${response.data.summary.difference.toFixed(2)}\n\n` +
+                    `Total Members: ${response.data.summary.totalMembers}\n` +
+                    `Expected Members: ${response.data.summary.expectedMembers}\n\n` +
+                    `Members without installments: ${response.data.membersWithoutInstallments.length}\n` +
+                    `Members with 1 installment: ${response.data.membersWithOneInstallment.length}\n` +
+                    `Non-standard installments: ${response.data.nonStandardInstallments.length}`,
+                    [
+                      { text: 'OK' },
+                      { 
+                        text: 'View Details', 
+                        onPress: () => {
+                          console.log('Installments Diagnostic:', JSON.stringify(response.data, null, 2));
+                          Alert.alert('Details logged to console');
+                        }
+                      }
+                    ]
+                  );
+                } catch (error) {
+                  Alert.alert('Error', 'Failed to get diagnostic data');
+                }
+              }}
+            >
+              <Text style={styles.actionButtonText}>Check Installments</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Expense Modal */}

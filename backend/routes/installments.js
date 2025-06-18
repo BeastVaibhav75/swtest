@@ -247,4 +247,90 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Diagnostic endpoint to check installments data
+router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
+  try {
+    const installments = await Installment.find().populate('memberId', 'name memberId');
+    const members = await User.find({ role: 'member' });
+    
+    // Calculate totals
+    const totalInstallments = installments.length;
+    const totalAmount = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0);
+    const expectedAmount = 92 * 1000; // 92 installments of ₹1000 each
+    const difference = totalAmount - expectedAmount;
+    
+    // Group by member
+    const memberInstallments = {};
+    installments.forEach(inst => {
+      const memberName = inst.memberId ? inst.memberId.name : 'Unknown';
+      const memberId = inst.memberId ? inst.memberId.memberId : 'Unknown';
+      const key = `${memberName} (${memberId})`;
+      
+      if (!memberInstallments[key]) {
+        memberInstallments[key] = {
+          count: 0,
+          total: 0,
+          installments: []
+        };
+      }
+      
+      memberInstallments[key].count++;
+      memberInstallments[key].total += inst.amount || 0;
+      memberInstallments[key].installments.push({
+        amount: inst.amount,
+        date: inst.date,
+        id: inst._id
+      });
+    });
+    
+    // Find members without installments
+    const membersWithoutInstallments = members.filter(member => {
+      const memberInstallmentCount = installments.filter(inst => 
+        inst.memberId && inst.memberId._id.toString() === member._id.toString()
+      ).length;
+      return memberInstallmentCount === 0;
+    });
+    
+    // Find members with only 1 installment
+    const membersWithOneInstallment = members.filter(member => {
+      const memberInstallmentCount = installments.filter(inst => 
+        inst.memberId && inst.memberId._id.toString() === member._id.toString()
+      ).length;
+      return memberInstallmentCount === 1;
+    });
+    
+    // Find non-standard installments (not ₹1000)
+    const nonStandardInstallments = installments.filter(inst => inst.amount !== 1000);
+    
+    res.json({
+      summary: {
+        totalInstallments,
+        totalAmount,
+        expectedAmount,
+        difference,
+        totalMembers: members.length,
+        expectedMembers: 46 // 92 ÷ 2 = 46
+      },
+      memberInstallments,
+      membersWithoutInstallments: membersWithoutInstallments.map(m => ({
+        name: m.name,
+        memberId: m.memberId
+      })),
+      membersWithOneInstallment: membersWithOneInstallment.map(m => ({
+        name: m.name,
+        memberId: m.memberId
+      })),
+      nonStandardInstallments: nonStandardInstallments.map(inst => ({
+        amount: inst.amount,
+        date: inst.date,
+        memberName: inst.memberId ? inst.memberId.name : 'Unknown',
+        memberId: inst.memberId ? inst.memberId.memberId : 'Unknown'
+      }))
+    });
+  } catch (error) {
+    console.error('Installments diagnostic error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 
