@@ -215,4 +215,13 @@ router.get('/members', async (req, res) => {
   }
 });
 
+// Version check endpoint
+router.get('/version', (req, res) => {
+  res.json({
+    version: '1.0.1', // Update this when you release new versions
+    downloadUrl: 'https://beastvaibhav75.github.io/Swanidhi_Download/', // User's download website
+    releaseNotes: 'Bug fixes and improvements'
+  });
+});
+
 module.exports = router; 
