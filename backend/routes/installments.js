@@ -336,7 +336,7 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
         expectedAmount,
         difference,
         totalMembers: members.length,
-        expectedMembers: 46, // 92 ÷ 2 = 46
+        expectedMembers: members.length,
         standardInstallmentAmount: STANDARD_INSTALLMENT_AMOUNT
       },
       memberInstallments,
