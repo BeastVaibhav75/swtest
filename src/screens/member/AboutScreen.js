@@ -97,7 +97,7 @@ export default function AboutScreen({ navigation }) {
         </View>
 
         <Text style={styles.copyright}>
-          © 2024 Swanidhi. All rights reserved.
+          © {new Date().getFullYear()} Swanidhi. All rights reserved.
         </Text>
       </View>
     </View>

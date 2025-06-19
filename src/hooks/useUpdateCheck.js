@@ -8,6 +8,7 @@ export const useUpdateCheck = () => {
 
   // Accept options for auto/manual and state setters
   const checkForUpdates = async ({ auto = false, setChecking, setUpdating: setUpdatingExternal } = {}) => {
+    let apiCheckFailed = false;
     try {
       if (setChecking) setChecking(true);
       // First try OTA updates (for development/preview builds)
@@ -70,6 +71,11 @@ export const useUpdateCheck = () => {
         }
       } catch (apiError) {
         console.error('API version check error:', apiError);
+        apiCheckFailed = true;
+      }
+      // If API check failed and this was a manual check, show error
+      if (apiCheckFailed && !auto) {
+        Alert.alert('Unable to Check for Updates', 'Please try again later or update through the app store.');
       }
     } catch (error) {
       console.error('Check for updates error:', error);
