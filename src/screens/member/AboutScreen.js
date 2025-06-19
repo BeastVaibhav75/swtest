@@ -1,145 +1,29 @@
 import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 
 export default function AboutScreen({ navigation }) {
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const { checkForUpdates } = useUpdateCheck();
 
   useEffect(() => {
-    checkForUpdatesOnLoad();
+    // Use the robust update check logic for auto-popup
+    checkForUpdates({ auto: true, setChecking, setUpdating });
   }, []);
 
-  const checkForUpdatesOnLoad = async () => {
-    try {
-      if (!Updates.isEnabled) {
-        return;
-      }
-
-      const update = await Updates.checkForUpdateAsync();
-      
-      if (update.isAvailable) {
-        Alert.alert(
-          'New Update Available',
-          'A new version of Swanidhi is available. Would you like to update now?',
-          [
-            {
-              text: 'Later',
-              style: 'cancel',
-            },
-            {
-              text: 'Update Now',
-              onPress: async () => {
-                try {
-                  setUpdating(true);
-                  await Updates.fetchUpdateAsync();
-                  await Updates.reloadAsync();
-                } catch (error) {
-                  console.error('Update error:', error);
-                  Alert.alert(
-                    'Update Failed',
-                    'Failed to update the app. Please try again later or update through the app store.'
-                  );
-                } finally {
-                  setUpdating(false);
-                }
-              },
-            },
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('Check for updates error:', error);
-      if (!__DEV__) {
-        Alert.alert(
-          'Error',
-          'Unable to check for updates. Please try again later or update through the app store.'
-        );
-      }
-    }
-  };
-
-  const checkForUpdates = async () => {
-    try {
-      setChecking(true);
-      
-      // Check if updates are enabled
-      if (!Updates.isEnabled) {
-        Alert.alert(
-          'Updates Not Available',
-          'Automatic updates are not enabled for this app. Please update through the app store.'
-        );
-        return;
-      }
-
-      // Check for updates
-      const update = await Updates.checkForUpdateAsync();
-      
-      if (update.isAvailable) {
-        Alert.alert(
-          'Update Available',
-          'A new version of the app is available. Would you like to update now?',
-          [
-            {
-              text: 'Later',
-              style: 'cancel',
-            },
-            {
-              text: 'Update',
-              onPress: async () => {
-                try {
-                  setUpdating(true);
-                  // Fetch the update
-                  await Updates.fetchUpdateAsync();
-                  // Reload the app with the new update
-                  await Updates.reloadAsync();
-                } catch (error) {
-                  console.error('Update error:', error);
-                  Alert.alert(
-                    'Update Failed',
-                    'Failed to update the app. Please try again later or update through the app store.'
-                  );
-                } finally {
-                  setUpdating(false);
-                }
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Up to Date',
-          'You are using the latest version of the app.',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('Check for updates error:', error);
-      // Check if the error is due to development client
-      if (__DEV__) {
-        Alert.alert(
-          'Development Mode',
-          'Update checking is not available in development mode. This feature will work in production builds.'
-        );
-      } else {
-        Alert.alert(
-          'Error',
-          'Unable to check for updates. Please try again later or update through the app store.'
-        );
-      }
-    } finally {
-      setChecking(false);
-    }
+  // Replace the old checkForUpdates with the robust one
+  const handleCheckForUpdates = () => {
+    checkForUpdates({ auto: false, setChecking, setUpdating });
   };
 
   const openPrivacyPolicy = () => {
@@ -176,7 +60,7 @@ export default function AboutScreen({ navigation }) {
 
         <TouchableOpacity
           style={[styles.updateButton, (checking || updating) && styles.updateButtonDisabled]}
-          onPress={checkForUpdates}
+          onPress={handleCheckForUpdates}
           disabled={checking || updating}
         >
           {checking ? (
