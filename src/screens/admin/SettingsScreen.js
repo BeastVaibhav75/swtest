@@ -1,10 +1,11 @@
+import Constants from 'expo-constants';
 import React from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -132,7 +133,7 @@ export default function SettingsScreen({ navigation }) {
       </TouchableOpacity>
 
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>Version 1.0.0</Text>
+        <Text style={styles.versionText}>Version {Constants.expoConfig?.version || '1.0.1'}</Text>
       </View>
     </View>
   );

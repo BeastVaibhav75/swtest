@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import React from 'react';
 import {
     Alert,
@@ -122,7 +123,7 @@ export default function MemberSettings({ navigation }) {
       </TouchableOpacity>
 
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>Version 1.0.0</Text>
+        <Text style={styles.versionText}>Version {Constants.expoConfig?.version || '1.0.1'}</Text>
       </View>
     </View>
   );
