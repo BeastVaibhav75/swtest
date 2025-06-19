@@ -5,6 +5,8 @@ const User = require('../models/User');
 const InvestmentHistory = require('../models/InvestmentHistory');
 const Fund = require('../models/Fund');
 const authenticate = require('../middleware/authenticate');
+const Logger = require('../services/logger');
+const Loan = require('../models/Loan');
 
 // Test endpoint
 router.get('/test', (req, res) => {
@@ -150,6 +152,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       await newFund.save();
     }
 
+    // Log the transaction
+    await Logger.logInstallmentCreated(installment, req.user.userId);
+
     res.status(201).json(installment);
   } catch (error) {
     console.error('Installment creation error:', error);
@@ -183,6 +188,14 @@ router.delete('/:id', authenticate, isAdmin, async (req, res) => {
 
     // 3. Delete associated InvestmentHistory entry
     await InvestmentHistory.deleteOne({ refId: id, type: 'installment' });
+
+    // Get the loan for logging
+    const loan = await Loan.findOne({ memberId: installment.memberId });
+    
+    // Log the repayment deletion before deleting
+    if (loan) {
+      await Logger.logRepaymentDeleted(loan, installment.amount, req.user.userId);
+    }
 
     // 4. Delete the installment
     await Installment.findByIdAndDelete(id);
@@ -236,11 +249,22 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
 
     // 4. Update the installment
     installment.amount = newAmount;
-    installment.date = new Date(); // Update date to current date as well
+    installment.date = new Date();
     await installment.save();
 
-    res.status(200).json({ message: 'Installment updated successfully', installment });
+    // Get the loan for logging
+    const loan = await Loan.findOne({ memberId: installment.memberId });
+    
+    // Log the repayment update
+    if (loan) {
+      await Logger.logRepaymentUpdated(loan, installment._id, oldAmount, newAmount, req.user.userId);
+      
+      // Update loan outstanding amount
+      loan.outstanding = (loan.outstanding || loan.amount) - amountDifference;
+      await loan.save();
+    }
 
+    res.status(200).json(installment);
   } catch (error) {
     console.error('Installment update error:', error);
     res.status(500).json({ message: 'Server error' });

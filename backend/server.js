@@ -8,6 +8,7 @@ const loanRoutes = require('./routes/loans');
 const installmentRoutes = require('./routes/installments');
 const expenseRoutes = require('./routes/expenses');
 const fundRoutes = require('./routes/fund');
+const logsRoutes = require('./routes/logs');
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/installments', installmentRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/fund', fundRoutes);
+app.use('/api/logs', logsRoutes);
 
 // Create default admin user
 const User = require('./models/User');

@@ -6,6 +6,7 @@ const EarningsDistribution = require('../models/EarningsDistribution');
 const authenticate = require('../middleware/authenticate');
 const Fund = require('../models/Fund');
 const InvestmentHistory = require('../models/InvestmentHistory');
+const Logger = require('../services/logger');
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -45,7 +46,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
     await expense.save();
 
-    console.log('Expense _id after saving:', expense._id.toString());
+    // Log the transaction
+    await Logger.logExpenseCreated(expense, req.user.userId);
 
     // Update fund
     const fund = await Fund.findOne();
@@ -122,6 +124,9 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     // 1. Update the expense document
     expense.amount = newAmount;
     await expense.save();
+
+    // Log the transaction
+    await Logger.logExpenseUpdated(expense, oldAmount, req.user.userId);
 
     // 2. Adjust the total fund
     const fund = await Fund.findOne();
@@ -200,6 +205,9 @@ router.delete('/:id', authenticate, isAdmin, async (req, res) => {
       fund.totalFund = (fund.totalFund || 0) + expense.amount; // Add back the deducted amount
       await fund.save();
     }
+
+    // Log the transaction before deletion
+    await Logger.logExpenseDeleted(expense, req.user.userId);
 
     // Revert member investment balances and delete related earnings distribution/investment history
     const earningsDistribution = await EarningsDistribution.findOne({ refId: id, type: 'expense' });

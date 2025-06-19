@@ -6,6 +6,7 @@ const InvestmentHistory = require('../models/InvestmentHistory');
 const EarningsDistribution = require('../models/EarningsDistribution');
 const Fund = require('../models/Fund');
 const authenticate = require('../middleware/authenticate');
+const Logger = require('../services/logger');
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -145,6 +146,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       await newFund.save();
     }
 
+    // Log the transaction
+    await Logger.logLoanApproved(loan, req.user.userId);
+
     res.status(201).json(loan);
   } catch (error) {
     console.error('Loan creation error:', error);
@@ -213,6 +217,9 @@ router.delete('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (r
 
     // 4. Remove the repayment from the loan
     loan.repayments.splice(repaymentIndex, 1);
+
+    // Log the repayment deletion before saving
+    await Logger.logRepaymentDeleted(loan, deletedRepayment.amount, req.user.userId);
 
     await loan.save();
 
@@ -331,6 +338,9 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
           });
           await memberHistory.save();
         }
+        
+        // Log the interest distribution
+        await Logger.logInterestDistributed(interestAmount, activeMembers.length, req.user.userId);
       }
     }
 
@@ -339,6 +349,9 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
     loan.repayments[repaymentIndex].date = new Date(); // Update date to current date as well
 
     await loan.save();
+
+    // Log the repayment update
+    await Logger.logRepaymentUpdated(loan, repaymentId, oldRepaymentAmount, newRepaymentAmount, req.user.userId);
 
     res.status(200).json({ message: 'Repayment updated successfully', loan });
 
@@ -419,12 +432,18 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
           await memberHistory.save();
         }
         interestDistributed = true;
+        
+        // Log the interest distribution
+        await Logger.logInterestDistributed(interestAmount, activeMembers.length, req.user.userId);
       }
     }
 
     // Add repayment to loan if amount is not 0
     if (repaymentAmount > 0) {
       loan.repayments.push({ amount: repaymentAmount, date: new Date() });
+      
+      // Log the repayment transaction
+      await Logger.logRepayment(loan, repaymentAmount, req.user.userId);
     }
     
     // Calculate new outstanding amount - ensure all numbers are properly converted
@@ -529,6 +548,16 @@ router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
     });
 
     await loan.save();
+    
+    // Log the loan update if amount was changed
+    if (updateData.amount && updateData.amount !== loan.amount) {
+      const oldData = {
+        amount: updateData.amount,
+        deduction: Number((updateData.amount * 0.02).toFixed(2))
+      };
+      await Logger.logLoanUpdated(loan, oldData, req.user.userId);
+    }
+    
     res.status(200).json(loan);
   } catch (error) {
     console.error('Loan update error:', error);
@@ -604,6 +633,9 @@ router.delete('/:loanId', authenticate, isAdmin, async (req, res) => {
         { type: 'deduction', refId: loan._id.toString() }
       ]
     });
+
+    // Log the loan deletion before deleting
+    await Logger.logLoanDeleted(loan, req.user.userId);
 
     // Delete the loan
     await Loan.findByIdAndDelete(loanId);

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const authenticate = require('../middleware/authenticate');
 const { generateMemberId } = require('../utils/helpers');
+const Logger = require('../services/logger');
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -72,7 +73,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
     await member.save();
 
-    // Return member ID and password
+    // Log the member creation
+    await Logger.logMemberCreated(member, req.user.userId);
+
     res.status(201).json({
       memberId,
       password,
@@ -110,6 +113,9 @@ router.post('/:id/pause', authenticate, isAdmin, async (req, res) => {
     member.paused = true;
     await member.save();
     
+    // Log the member pause
+    await Logger.logMemberPaused(member, req.user.userId);
+    
     res.json({ message: 'Member paused successfully' });
   } catch (error) {
     console.error('Pause member error:', error);
@@ -127,6 +133,9 @@ router.post('/:id/unpause', authenticate, isAdmin, async (req, res) => {
 
     member.paused = false;
     await member.save();
+    
+    // Log the member unpause
+    await Logger.logMemberUnpaused(member, req.user.userId);
     
     res.json({ message: 'Member unpaused successfully' });
   } catch (error) {
@@ -175,6 +184,9 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     if (password) member.password = password;
 
     await member.save();
+    
+    // Log the member update
+    await Logger.logMemberUpdated(member, req.user.userId);
     
     res.json({ message: 'Member updated successfully' });
   } catch (error) {

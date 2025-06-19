@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { generateMemberId } = require('../utils/helpers');
+const Logger = require('../services/logger');
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -13,12 +14,16 @@ router.post('/login', async (req, res) => {
     // Find user by memberId
     const user = await User.findOne({ memberId });
     if (!user) {
+      // Log failed login attempt for non-existent user
+      await Logger.logUserLogin({ _id: 'unknown', name: 'Unknown', role: 'unknown', memberId }, 'failed_login', req.ip, req.get('User-Agent'), false, 'User not found');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      // Log failed login attempt
+      await Logger.logUserLogin(user, 'failed_login', req.ip, req.get('User-Agent'), false, 'Invalid password');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -32,6 +37,9 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
+
+    // Log successful login
+    await Logger.logUserLogin(user, 'login', req.ip, req.get('User-Agent'), true);
 
     // Return user data and token
     const userData = {
