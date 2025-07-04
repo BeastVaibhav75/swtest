@@ -68,20 +68,22 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [fundRes, loansRes, expensesRes, membersRes, installmentsRes, earningsRes] = await Promise.all([
+      const [fundRes, loansRes, expensesRes, membersRes, installmentsRes, earningsRes, totalInterestRes] = await Promise.all([
         fundAPI.getTotalFund(),
         loansAPI.getAll(),
         expensesAPI.getAll(),
         membersAPI.getAll(),
         installmentsAPI.getAll(),
-        fundAPI.getTotalInterestThisMonth()
+        fundAPI.getTotalInterestThisMonth(),
+        fundAPI.getTotalInterest()
       ]);
 
-      // Get the latest interest distribution
-      const latestInterest = earningsRes.data?.totalInterestThisMonth || 0;
+      // Use total interest everywhere except for 'This Month's Interest'
+      const totalInterest = totalInterestRes.data?.totalInterest || 0;
+      const totalMembers = membersRes.data.length || 1;
       setEarningsDistribution({
-        totalAmount: latestInterest,
-        perMemberAmount: latestInterest / (membersRes.data.length || 1)
+        totalAmount: totalInterest,
+        perMemberAmount: totalInterest / totalMembers
       });
 
       // Calculate base fund from installments
@@ -98,16 +100,16 @@ export default function AdminDashboard() {
       }, 0);
       setDeductionFromLoans(calculatedDeduction);
 
-      // Set interest and total interest (including deduction)
-      setInterestFromLoans(latestInterest);
-      setTotalInterest(latestInterest + calculatedDeduction);
+      // Use total interest for all calculations except this month's interest
+      setInterestFromLoans(totalInterest);
+      setTotalInterest(totalInterest);
 
-      // Total fund is base fund + interest + deduction - expenses
-      const totalFundAmount = totalInstallments + latestInterest + calculatedDeduction - calculatedExpenses;
+      // Total fund is base fund + total interest + deduction - expenses
+      const totalFundAmount = totalInstallments + totalInterest + calculatedDeduction - calculatedExpenses;
       setTotalFund(totalFundAmount);
       setFund(totalFundAmount);
 
-      setTotalMembers(membersRes.data.length || 0);
+      setTotalMembers(totalMembers);
 
       // Get today's date string (YYYY-MM-DD)
       const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -138,12 +140,11 @@ export default function AdminDashboard() {
       const todayActivities = activities.filter(a => a.date && a.date.slice(0, 10) === todayStr);
       setTodayActivitiesCount(todayActivities.length);
 
-      // Calculate share value using the perMemberAmount from earnings distribution
-      const interestPerMember = latestInterest / (membersRes.data.length || 1);
-      const deductionPerMember = calculatedDeduction / (membersRes.data.length || 1);
-      const expensesPerMember = calculatedExpenses / (membersRes.data.length || 1);
-      const baseShareValue = totalInstallments / (membersRes.data.length || 1);
-      
+      // Calculate share value using the perMemberAmount from total interest
+      const interestPerMember = totalInterest / totalMembers;
+      const deductionPerMember = calculatedDeduction / totalMembers;
+      const expensesPerMember = calculatedExpenses / totalMembers;
+      const baseShareValue = totalInstallments / totalMembers;
       setShareValue(baseShareValue + interestPerMember + deductionPerMember - expensesPerMember);
 
       // Calculate total loans using outstanding amounts
@@ -151,6 +152,9 @@ export default function AdminDashboard() {
       setTotalLoans(totalLoans);
       const cashInHandValue = totalFundAmount - totalLoans;
       setCashInHand(cashInHandValue);
+
+      // Set this month's interest for the 'This Month's Interest' section only
+      setCalculatedInterest(earningsRes.data?.totalInterestThisMonth || 0);
 
     } catch (err) {
       // Check for 401 Unauthorized error specifically
