@@ -6,7 +6,7 @@ import { installmentsAPI, loansAPI, membersAPI } from '../../services/api';
 
 export default function UpdatePage({ navigation }) {
   const [selectedMember, setSelectedMember] = useState(null);
-  const [installment, setInstallment] = useState('');
+  const [installment, setInstallment] = useState('1000');
   const [interest, setInterest] = useState('');
   const [loanRepayment, setLoanRepayment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,6 +20,7 @@ export default function UpdatePage({ navigation }) {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedMember, setLastUpdatedMember] = useState(null);
 
   const fetchMembers = async () => {
     setMembersLoading(true);
@@ -112,11 +113,13 @@ export default function UpdatePage({ navigation }) {
         { 
           text: 'OK', 
           onPress: () => {
-            setInstallment('');
+            setInstallment('1000');
             setInterest('');
             setLoanRepayment('');
             setDate('');
             setSelectedMember(null);
+            // Show toast notification
+            setLastUpdatedMember(selectedMember);
             // Navigate back to dashboard to refresh data
             navigation.navigate('AdminDashboard');
           }
@@ -132,7 +135,7 @@ export default function UpdatePage({ navigation }) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchMembers();
-    setInstallment('');
+    setInstallment('1000');
     setInterest('');
     setLoanRepayment('');
     setDate('');
@@ -140,6 +143,7 @@ export default function UpdatePage({ navigation }) {
     setActiveLoans([]);
     setSelectedLoan(null);
     setShowLoanModal(false);
+    setLastUpdatedMember(null);
     setRefreshing(false);
   }, [fetchMembers]);
 
@@ -150,12 +154,20 @@ export default function UpdatePage({ navigation }) {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      {/* Last Updated Section */}
+      {lastUpdatedMember && (
+        <View style={styles.lastUpdatedSection}>
+          <Text style={styles.lastUpdatedText}>Last updated: {lastUpdatedMember.name}</Text>
+        </View>
+      )}
+      
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={28} color="#007AFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Update Member</Text>
       </View>
+      
       {/* Member selection */}
       <TouchableOpacity style={styles.selectBox} onPress={() => setShowMemberModal(true)}>
         <Text style={styles.selectText}>{selectedMember ? selectedMember.name : 'Select Member'}</Text>
@@ -190,7 +202,7 @@ export default function UpdatePage({ navigation }) {
       <Text style={styles.label}>Installment</Text>
       <TextInput
         style={styles.input}
-        placeholder="Enter installment amount"
+        placeholder="Enter installment amount (default: ₹1000)"
         value={installment}
         onChangeText={setInstallment}
         keyboardType="numeric"
@@ -407,5 +419,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
+  },
+  lastUpdatedSection: {
+    backgroundColor: '#f0f0f0',
+    padding: 15,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  lastUpdatedText: {
+    fontSize: 16,
+    color: '#555',
   },
 }); 
