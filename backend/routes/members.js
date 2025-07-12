@@ -114,7 +114,7 @@ router.post('/:id/pause', authenticate, isAdmin, async (req, res) => {
     await member.save();
     
     // Log the member pause
-    await Logger.logMemberPaused(member, req.user.userId);
+    await Logger.logMemberPaused(member, 'Member paused by admin', req.user.userId);
     
     res.json({ message: 'Member paused successfully' });
   } catch (error) {
@@ -135,7 +135,7 @@ router.post('/:id/unpause', authenticate, isAdmin, async (req, res) => {
     await member.save();
     
     // Log the member unpause
-    await Logger.logMemberUnpaused(member, req.user.userId);
+    await Logger.logMemberUnpaused(member, 'Member unpaused by admin', req.user.userId);
     
     res.json({ message: 'Member unpaused successfully' });
   } catch (error) {
@@ -178,6 +178,13 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     //   }
     // }
 
+    // Store old data for logging
+    const oldData = {
+      name: member.name,
+      phone: member.phone,
+      password: member.password
+    };
+
     // Update fields if provided
     if (name) member.name = name;
     if (phone) member.phone = phone;
@@ -186,7 +193,7 @@ router.patch('/:id', authenticate, isAdmin, async (req, res) => {
     await member.save();
     
     // Log the member update
-    await Logger.logMemberUpdated(member, req.user.userId);
+    await Logger.logMemberUpdated(member, oldData, req.user.userId);
     
     res.json({ message: 'Member updated successfully' });
   } catch (error) {

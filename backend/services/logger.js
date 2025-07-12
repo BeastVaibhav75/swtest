@@ -624,7 +624,16 @@ class Logger {
   }
 
   static async logMemberCreated(member, performedBy) {
+    if (!member) {
+      console.error('logMemberCreated: member is null or undefined');
+      return;
+    }
+
     const user = await User.findById(performedBy);
+    if (!user) {
+      console.error('logMemberCreated: user not found for performedBy:', performedBy);
+      return;
+    }
     
     await this.logMember({
       memberId: member._id,
@@ -651,19 +660,30 @@ class Logger {
   }
 
   static async logMemberUpdated(member, oldData, performedBy) {
+    if (!member) {
+      console.error('logMemberUpdated: member is null or undefined');
+      return;
+    }
+
     const user = await User.findById(performedBy);
+    if (!user) {
+      console.error('logMemberUpdated: user not found for performedBy:', performedBy);
+      return;
+    }
     
     // Track field changes
     const fieldChanges = [];
-    Object.keys(oldData).forEach(key => {
-      if (oldData[key] !== member[key]) {
-        fieldChanges.push({
-          field: key,
-          oldValue: oldData[key],
-          newValue: member[key]
-        });
-      }
-    });
+    if (oldData) {
+      Object.keys(oldData).forEach(key => {
+        if (oldData[key] !== member[key]) {
+          fieldChanges.push({
+            field: key,
+            oldValue: oldData[key],
+            newValue: member[key]
+          });
+        }
+      });
+    }
     
     await this.logMember({
       memberId: member._id,
@@ -691,13 +711,59 @@ class Logger {
   }
 
   static async logMemberPaused(member, reason, performedBy) {
+    if (!member) {
+      console.error('logMemberPaused: member is null or undefined');
+      return;
+    }
+
     const user = await User.findById(performedBy);
+    if (!user) {
+      console.error('logMemberPaused: user not found for performedBy:', performedBy);
+      return;
+    }
     
     await this.logMember({
       memberId: member._id,
       memberName: member.name,
       memberIdCode: member.memberId,
       action: 'paused',
+      performedBy: performedBy,
+      performedByName: user.name,
+      performedByRole: user.role,
+      reason: reason,
+      memberDetails: {
+        name: member.name,
+        phone: member.phone,
+        memberId: member.memberId,
+        role: member.role,
+        paused: member.paused,
+        investmentBalance: member.investmentBalance,
+        interestEarned: member.interestEarned,
+        createdAt: member.createdAt
+      },
+      additionalData: {
+        memberId: member._id
+      }
+    });
+  }
+
+  static async logMemberUnpaused(member, reason, performedBy) {
+    if (!member) {
+      console.error('logMemberUnpaused: member is null or undefined');
+      return;
+    }
+
+    const user = await User.findById(performedBy);
+    if (!user) {
+      console.error('logMemberUnpaused: user not found for performedBy:', performedBy);
+      return;
+    }
+    
+    await this.logMember({
+      memberId: member._id,
+      memberName: member.name,
+      memberIdCode: member.memberId,
+      action: 'unpaused',
       performedBy: performedBy,
       performedByName: user.name,
       performedByRole: user.role,
