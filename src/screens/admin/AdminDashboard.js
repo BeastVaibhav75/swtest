@@ -367,10 +367,10 @@ export default function AdminDashboard() {
             {isLoading ? (
               <ActivityIndicator size="small" color="#007AFF" />
             ) : (
-              <Text style={styles.shareValueText}>₹{totalInterest.toFixed(2)}</Text>
+              <Text style={styles.shareValueText}>₹{(totalInterest + deductionFromLoans).toFixed(2)}</Text>
             )}
           </View>
-          <Text style={styles.valueLabel}>This Month's Interest</Text>
+          <Text style={styles.valueLabel}>Total Interest</Text>
           <View style={styles.breakupRow}>
             <Text style={styles.breakupLabel}>1% Interest from Loans</Text>
             <Text style={styles.breakupValue}>₹{interestFromLoans.toFixed(2)}</Text>
