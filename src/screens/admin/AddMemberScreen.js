@@ -23,6 +23,7 @@ const API_URL = 'https://swanidhi-backend.onrender.com/api';
 export default function AddMemberScreen({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [investmentBalance, setInvestmentBalance] = useState('');
   const [memberId, setMemberId] = useState('');
   const [role, setRole] = useState('member'); // Default role
   const [password, setPassword] = useState('');
@@ -48,6 +49,7 @@ export default function AddMemberScreen({ navigation }) {
       const response = await axios.post(`${API_URL}/members`, {
         name,
         phone,
+        investmentBalance: parseFloat(investmentBalance) || 0,
       });
 
       console.log('Add member response:', response.data);
@@ -55,6 +57,7 @@ export default function AddMemberScreen({ navigation }) {
       setModalVisible(true);
       setName('');
       setPhone('');
+      setInvestmentBalance('');
     } catch (error) {
       console.error('Add member error:', error);
       Alert.alert(
@@ -70,6 +73,7 @@ export default function AddMemberScreen({ navigation }) {
     setRefreshing(true);
     setName('');
     setPhone('');
+    setInvestmentBalance('');
     setMemberId('');
     setRole('member');
     setPassword('');
@@ -112,6 +116,16 @@ export default function AddMemberScreen({ navigation }) {
           placeholder="Enter 10-digit phone number"
           keyboardType="phone-pad"
           maxLength={10}
+          editable={!loading}
+        />
+
+        <Text style={styles.label}>Initial Balance (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          value={investmentBalance}
+          onChangeText={setInvestmentBalance}
+          placeholder="Enter initial investment amount"
+          keyboardType="numeric"
           editable={!loading}
         />
 

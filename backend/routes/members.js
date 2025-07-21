@@ -43,7 +43,7 @@ router.get('/', authenticate, isAdmin, async (req, res) => {
 // Add new member
 router.post('/', authenticate, isAdmin, async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, investmentBalance } = req.body;
 
     // Validate phone number
     if (!/^[6-9]\d{9}$/.test(phone)) {
@@ -69,6 +69,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       name,
       phone,
       role: 'member',
+      investmentBalance: investmentBalance || 0,
     });
 
     await member.save();
