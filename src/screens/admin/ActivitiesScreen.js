@@ -253,10 +253,11 @@ export default function ActivitiesScreen({ route }) {
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Amount (₹)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: 'black' }]}
                 value={editAmount}
                 onChangeText={setEditAmount}
                 placeholder="Enter amount"
+                placeholderTextColor="black"
                 keyboardType="numeric"
                 editable={!saving}
               />

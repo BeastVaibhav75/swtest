@@ -72,8 +72,9 @@ export default function ChangePasswordScreen({ navigation }) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Current Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             placeholder="Enter current password"
+            placeholderTextColor="black"
             secureTextEntry
             value={currentPassword}
             onChangeText={setCurrentPassword}
@@ -83,8 +84,9 @@ export default function ChangePasswordScreen({ navigation }) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>New Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             placeholder="Enter new password"
+            placeholderTextColor="black"
             secureTextEntry
             value={newPassword}
             onChangeText={setNewPassword}
@@ -94,8 +96,9 @@ export default function ChangePasswordScreen({ navigation }) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Confirm New Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             placeholder="Confirm new password"
+            placeholderTextColor="black"
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}

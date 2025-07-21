@@ -53,8 +53,9 @@ export default function LoginScreen({ navigation }) {
       <Text style={styles.title}>Swanidhi</Text>
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: 'black' }]}
           placeholder="Member ID"
+          placeholderTextColor="black"
           value={memberId}
           onChangeText={setMemberId}
           autoCapitalize="none"
@@ -62,8 +63,9 @@ export default function LoginScreen({ navigation }) {
         />
         <View style={styles.passwordContainer}>
           <TextInput
-            style={[styles.input, styles.passwordInput]}
+            style={[styles.input, styles.passwordInput, { color: 'black' }]}
             placeholder="Password"
+            placeholderTextColor="black"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}

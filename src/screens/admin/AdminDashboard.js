@@ -453,10 +453,11 @@ export default function AdminDashboard() {
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Amount (₹)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: 'black' }]}
                   value={expenseAmount}
                   onChangeText={setExpenseAmount}
                   placeholder="Enter amount"
+                  placeholderTextColor="black"
                   keyboardType="numeric"
                   editable={!isSubmitting}
                 />
@@ -465,10 +466,11 @@ export default function AdminDashboard() {
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Reason</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, { color: 'black' }]}
                   value={expenseReason}
                   onChangeText={setExpenseReason}
                   placeholder="Enter reason for expense"
+                  placeholderTextColor="black"
                   multiline
                   numberOfLines={3}
                   editable={!isSubmitting}

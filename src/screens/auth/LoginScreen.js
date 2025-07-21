@@ -71,20 +71,22 @@ export default function LoginScreen({ navigation }) {
 
         <Text style={styles.label}>Member ID</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: 'black' }]}
           value={memberId}
           onChangeText={setMemberId}
           placeholder="Enter your member ID"
+          placeholderTextColor="black"
           editable={!loading}
         />
 
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
-            style={[styles.input, styles.passwordInput]}
+            style={[styles.input, styles.passwordInput, { color: 'black' }]}
             value={password}
             onChangeText={setPassword}
             placeholder="Enter your password"
+            placeholderTextColor="black"
             secureTextEntry={!showPassword}
             editable={!loading}
           />

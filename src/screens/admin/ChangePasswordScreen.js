@@ -72,30 +72,33 @@ export default function ChangePasswordScreen({ navigation }) {
       <View style={styles.form}>
         <Text style={styles.label}>Current Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: 'black' }]}
           value={currentPassword}
           onChangeText={setCurrentPassword}
           placeholder="Enter current password"
+          placeholderTextColor="black"
           secureTextEntry
           editable={!loading}
         />
 
         <Text style={styles.label}>New Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: 'black' }]}
           value={newPassword}
           onChangeText={setNewPassword}
           placeholder="Enter new password"
+          placeholderTextColor="black"
           secureTextEntry
           editable={!loading}
         />
 
         <Text style={styles.label}>Confirm New Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: 'black' }]}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           placeholder="Confirm new password"
+          placeholderTextColor="black"
           secureTextEntry
           editable={!loading}
         />

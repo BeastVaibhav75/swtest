@@ -201,8 +201,9 @@ export default function UpdatePage({ navigation }) {
       {/* Installment input */}
       <Text style={styles.label}>Installment</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: 'black' }]}
         placeholder="Enter installment amount (default: ₹1000)"
+        placeholderTextColor="black"
         value={installment}
         onChangeText={setInstallment}
         keyboardType="numeric"
@@ -266,8 +267,9 @@ export default function UpdatePage({ navigation }) {
 
           <Text style={styles.label}>Loan Repayment</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             placeholder="Enter loan repayment amount"
+            placeholderTextColor="black"
             value={loanRepayment}
             onChangeText={(text) => {
               setLoanRepayment(text);
@@ -280,8 +282,9 @@ export default function UpdatePage({ navigation }) {
 
           <Text style={styles.label}>Interest</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             placeholder="Enter interest amount"
+            placeholderTextColor="black"
             value={interest}
             onChangeText={setInterest}
             keyboardType="numeric"
@@ -293,8 +296,9 @@ export default function UpdatePage({ navigation }) {
       <Text style={styles.label}>Date (optional)</Text>
       <View style={styles.dateInputRow}>
         <TextInput
-          style={[styles.input, { flex: 1, marginRight: 8 }]}
+          style={[styles.input, { flex: 1, marginRight: 8, color: 'black' }]}
           placeholder="YYYY-MM-DD (leave blank for today)"
+          placeholderTextColor="black"
           value={date}
           onChangeText={setDate}
         />

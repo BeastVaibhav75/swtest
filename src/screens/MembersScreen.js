@@ -73,8 +73,9 @@ const MembersScreen = () => {
     <View style={styles.container}>
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: 'black' }]}
           placeholder="Search members..."
+          placeholderTextColor="black"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />

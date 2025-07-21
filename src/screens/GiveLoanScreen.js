@@ -72,22 +72,24 @@ const GiveLoanScreen = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Amount (₹)</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
             placeholder="Enter loan amount"
+            placeholderTextColor="black"
           />
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Interest Rate (%)</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             value={interestRate}
             onChangeText={setInterestRate}
             keyboardType="numeric"
             placeholder="Enter interest rate"
+            placeholderTextColor="black"
           />
         </View>
 

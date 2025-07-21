@@ -138,8 +138,9 @@ export default function GiveLoanPage({ navigation }) {
       {/* Loan amount input */}
       <Text style={styles.label}>Loan Amount</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: 'black' }]}
         placeholder="Enter loan amount"
+        placeholderTextColor="black"
         value={loanAmount}
         onChangeText={setLoanAmount}
         keyboardType="numeric"
@@ -148,8 +149,9 @@ export default function GiveLoanPage({ navigation }) {
       <Text style={styles.label}>Date (optional)</Text>
       <View style={styles.dateInputRow}>
         <TextInput
-          style={[styles.input, { flex: 1, marginRight: 8 }]}
+          style={[styles.input, { flex: 1, marginRight: 8, color: 'black' }]}
           placeholder="YYYY-MM-DD (leave blank for today)"
+          placeholderTextColor="black"
           value={date}
           onChangeText={setDate}
         />

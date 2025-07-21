@@ -34,21 +34,24 @@ export default function AddMember({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Add Member</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: 'black' }]}
         placeholder="Name"
+        placeholderTextColor="black"
         value={name}
         onChangeText={setName}
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: 'black' }]}
         placeholder="Phone"
+        placeholderTextColor="black"
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: 'black' }]}
         placeholder="Initial Balance (Optional)"
+        placeholderTextColor="black"
         value={investmentBalance}
         onChangeText={setInvestmentBalance}
         keyboardType="numeric"

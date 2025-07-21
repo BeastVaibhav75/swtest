@@ -211,27 +211,30 @@ export default function ManageMembers({ navigation }) {
             
             <Text style={styles.label}>Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: 'black' }]}
               value={editName}
               onChangeText={setEditName}
               placeholder="Enter name"
+              placeholderTextColor="black"
             />
 
             <Text style={styles.label}>Phone Number</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: 'black' }]}
               value={editPhone}
               onChangeText={setEditPhone}
               placeholder="Enter phone number"
+              placeholderTextColor="black"
               keyboardType="phone-pad"
             />
 
             <Text style={styles.label}>New Password (leave blank to keep current)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: 'black' }]}
               value={editPassword}
               onChangeText={setEditPassword}
               placeholder="Enter new password"
+              placeholderTextColor="black"
               secureTextEntry
             />
 
@@ -275,10 +278,11 @@ export default function ManageMembers({ navigation }) {
             <Text style={styles.modalSubtitle}>Please enter your admin password to confirm changes</Text>
             
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: 'black' }]}
               value={adminPassword}
               onChangeText={setAdminPassword}
               placeholder="Enter admin password"
+              placeholderTextColor="black"
               secureTextEntry
             />
 

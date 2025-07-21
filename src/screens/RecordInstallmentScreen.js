@@ -70,11 +70,12 @@ const RecordInstallmentScreen = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Amount (₹)</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]}
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
             placeholder="Enter installment amount"
+            placeholderTextColor="black"
           />
         </View>
 
