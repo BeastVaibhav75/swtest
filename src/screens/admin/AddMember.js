@@ -5,6 +5,7 @@ import { membersAPI } from '../../services/api';
 export default function AddMember({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [investmentBalance, setInvestmentBalance] = useState('');
   const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -16,11 +17,12 @@ export default function AddMember({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await membersAPI.create({ name, phone });
+      const res = await membersAPI.create({ name, phone, investmentBalance: parseFloat(investmentBalance) || 0 });
       setCredentials(res.data);
       setModalVisible(true);
       setName('');
       setPhone('');
+      setInvestmentBalance('');
     } catch (e) {
       Alert.alert('Error', 'Failed to add member');
     } finally {
@@ -43,6 +45,13 @@ export default function AddMember({ navigation }) {
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Initial Balance (Optional)"
+        value={investmentBalance}
+        onChangeText={setInvestmentBalance}
+        keyboardType="numeric"
       />
       <TouchableOpacity style={styles.button} onPress={handleAdd} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Adding...' : 'Add'}</Text>
