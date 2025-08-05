@@ -1,15 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import {
     Alert,
-    FlatList,
-    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,8 +15,6 @@ export default function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showAccountModal, setShowAccountModal] = useState(false);
-  const [accountOptions, setAccountOptions] = useState([]);
   const { loginByPhone, loading } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -33,29 +29,15 @@ export default function LoginScreen({ navigation }) {
       const result = await loginByPhone(phone, password);
       console.log('Login result:', result);
       
-      // Always show account selection modal if accounts are returned
-      if (result && result.accounts && result.accounts.length > 0) {
-        console.log('Setting account options:', result.accounts.length);
-        setAccountOptions(result.accounts);
-        setShowAccountModal(true);
-      } else {
-        console.log('No accounts found in result:', result);
+      // If user data is returned, login was successful
+      if (result && result.id) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: result.role === 'admin' ? 'Main' : 'MemberHome' }],
+        });
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
-    }
-  };
-
-  const handleAccountSelect = async (account) => {
-    setShowAccountModal(false);
-    try {
-      const userData = await loginByPhone(phone, password, account.memberId);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: userData.role === 'admin' ? 'Main' : 'MemberHome' }],
-      });
-    } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
     }
   };
@@ -117,35 +99,6 @@ export default function LoginScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
-
-      {/* Account Selection Modal */}
-      <Modal
-        visible={showAccountModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAccountModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Account</Text>
-            <FlatList
-              data={accountOptions}
-              keyExtractor={item => item.memberId}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.accountItem}
-                  onPress={() => handleAccountSelect(item)}
-                >
-                  <Text style={styles.accountName}>{item.name} ({item.memberId})</Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity onPress={() => setShowAccountModal(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -209,41 +162,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '80%',
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  accountItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  accountName: {
-    fontSize: 16,
-  },
-  cancelButton: {
-    marginTop: 15,
-    padding: 10,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#dc3545',
-    fontSize: 16,
   },
 }); 

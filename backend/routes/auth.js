@@ -83,11 +83,8 @@ router.post('/login-by-phone', async (req, res) => {
         return res.status(401).json({ message: 'Account not found for this memberId' });
       }
     } else {
-      // If only one account, use it
-      if (users.length === 1) {
-        selectedUser = users[0];
-      }
-      // If multiple accounts, don't select any - let frontend choose
+      // Always select the first account (default behavior)
+      selectedUser = users[0];
     }
     
     console.log('Selected user:', selectedUser ? selectedUser.memberId : 'none');
@@ -125,7 +122,7 @@ router.post('/login-by-phone', async (req, res) => {
     
     res.json({
       accounts,
-      token, // Only present if password was checked for a selected account
+      token, // Present when account is selected and password is correct
       selectedAccount: selectedUser ? selectedUser.memberId : null
     });
   } catch (error) {
