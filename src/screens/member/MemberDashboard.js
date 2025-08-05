@@ -225,7 +225,7 @@ export default function MemberDashboard({ navigation }) {
                 Welcome, {user?.name || 'Member'}
               </Text>
               {accounts && accounts.length > 1 && (
-                <Icon name="swap-horiz" size={20} color="rgba(255, 255, 255, 0.8)" style={styles.switchIcon} />
+                <Icon name="refresh" size={20} color="rgba(255, 255, 255, 0.8)" style={styles.switchIcon} />
               )}
             </View>
           </TouchableOpacity>
