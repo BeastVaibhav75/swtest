@@ -25,18 +25,14 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      console.log('Calling loginByPhone with phone:', phone);
       const result = await loginByPhone(phone, password);
-      console.log('Login result:', result);
       
       // If user data is returned, login was successful
       // The AppNavigator will automatically handle routing based on user state
       if (result && result.id) {
         // No need to navigate manually - AppNavigator will handle it
-        console.log('Login successful, user role:', result.role);
       }
     } catch (error) {
-      console.error('Login error:', error);
       Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
     }
   };

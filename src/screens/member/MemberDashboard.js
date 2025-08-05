@@ -1,16 +1,16 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -54,12 +54,9 @@ export default function MemberDashboard({ navigation }) {
   const fetchDashboardData = async () => {
     try {
       if (!user?.id) {
-        console.log('No user ID available');
         return;
       }
 
-      console.log('Fetching dashboard data for user:', user.id);
-      
       // Fetch all data in parallel
       const [interestRes, shareValueRes, investmentRes, installmentsRes, loansRes, totalFundRes] = await Promise.all([
         fundAPI.getInterest(user.id),
@@ -137,7 +134,6 @@ export default function MemberDashboard({ navigation }) {
     if (user?.id) {
       fetchDashboardData();
     } else {
-      console.log('No user ID available');
       setLoading(false);
     }
   }, [user]);
@@ -152,7 +148,6 @@ export default function MemberDashboard({ navigation }) {
 
   const onRefresh = React.useCallback(() => {
     if (!user?._id) {
-      console.log('Cannot refresh: No user ID available');
       setRefreshing(false);
       return;
     }
@@ -169,15 +164,11 @@ export default function MemberDashboard({ navigation }) {
         return;
       }
       
-      console.log('Switching to account:', selectedAccount.memberId);
-      console.log('Using phone:', phone);
-      
       // Switch accounts without password (backend handles this securely)
       await loginByPhone(phone, '', selectedAccount.memberId);
       // Refresh dashboard data
       fetchDashboardData();
     } catch (error) {
-      console.error('Account switch error:', error.response?.data || error.message);
       Alert.alert('Error', `Unable to switch to ${selectedAccount.name}: ${error.response?.data?.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -229,10 +220,14 @@ export default function MemberDashboard({ navigation }) {
             }}
             disabled={!accounts || accounts.length <= 1}
           >
-            <Text style={[styles.headerSubtitle, accounts && accounts.length > 1 && styles.clickableText]}>
-              Welcome, {user?.name || 'Member'}
-              {accounts && accounts.length > 1 && ' (Tap to switch)'}
-            </Text>
+            <View style={styles.welcomeContainer}>
+              <Text style={[styles.headerSubtitle, accounts && accounts.length > 1 && styles.clickableText]}>
+                Welcome, {user?.name || 'Member'}
+              </Text>
+              {accounts && accounts.length > 1 && (
+                <Icon name="swap-horiz" size={20} color="rgba(255, 255, 255, 0.8)" style={styles.switchIcon} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -585,5 +580,12 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#dc3545',
     fontSize: 16,
+  },
+  welcomeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  switchIcon: {
+    marginLeft: 5,
   },
 }); 

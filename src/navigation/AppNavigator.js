@@ -159,9 +159,6 @@ const MemberStack = () => (
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
-  console.log('AppNavigator: user state:', user);
-  console.log('AppNavigator: loading state:', loading);
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>

@@ -63,14 +63,11 @@ router.post('/login', async (req, res) => {
 router.post('/login-by-phone', async (req, res) => {
   try {
     const { phone, password, memberId } = req.body;
-    console.log('Login by phone request:', { phone, memberId: memberId || 'not provided' });
     
     // Find all users with this phone
     const users = await User.find({ phone });
-    console.log('Users found for phone:', users.length);
     
     if (!users || users.length === 0) {
-      console.log('No users found for phone:', phone);
       return res.status(401).json({ message: 'No accounts found for this phone number' });
     }
     
@@ -79,18 +76,14 @@ router.post('/login-by-phone', async (req, res) => {
     if (memberId) {
       selectedUser = users.find(u => u.memberId === memberId);
       if (!selectedUser) {
-        console.log('MemberId not found in users:', memberId);
         return res.status(401).json({ message: 'Account not found for this memberId' });
       }
       
       // For account switching, skip password verification since user already proved ownership
-      console.log('Account switching - skipping password verification for:', selectedUser.memberId);
     } else {
       // Always select the first account (default behavior)
       selectedUser = users[0];
     }
-    
-    console.log('Selected user:', selectedUser ? selectedUser.memberId : 'none');
     
     // If selectedUser, check password (only for initial login, not account switching)
     let token = null;
@@ -100,9 +93,6 @@ router.post('/login-by-phone', async (req, res) => {
       // Only verify password if no memberId provided (initial login)
       if (!memberId) {
         isMatch = await selectedUser.comparePassword(password);
-        console.log('Password match:', isMatch);
-      } else {
-        console.log('Account switching - password verification skipped');
       }
       
       if (!isMatch) {
@@ -129,8 +119,6 @@ router.post('/login-by-phone', async (req, res) => {
       investmentBalance: u.investmentBalance || 0,
       interestEarned: u.interestEarned || 0
     }));
-    
-    console.log('Returning accounts:', accounts.length, 'token:', token ? 'yes' : 'no');
     
     res.json({
       accounts,

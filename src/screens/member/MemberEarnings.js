@@ -20,7 +20,7 @@ export default function MemberEarnings() {
       setLoading(true);
       // Fetch both interest and share value for consistency
       const [interestRes, shareValueRes] = await Promise.all([
-        fundAPI.getInterest(user._id),
+        fundAPI.getInterest(user.id),
         fundAPI.getShareValue()
       ]);
       // Use interestEarned from user data
