@@ -86,15 +86,32 @@ router.post('/login-by-phone', async (req, res) => {
       // If only one account, use it
       if (users.length === 1) {
         selectedUser = users[0];
+      } else {
+        // If multiple accounts, check password against all accounts
+        for (const user of users) {
+          const isMatch = await user.comparePassword(password);
+          if (isMatch) {
+            selectedUser = user;
+            break;
+          }
+        }
       }
     }
     
     console.log('Selected user:', selectedUser ? selectedUser.memberId : 'none');
     
-    // If selectedUser, check password
+    // If selectedUser, check password (if not already checked)
     let token = null;
     if (selectedUser) {
-      const isMatch = await selectedUser.comparePassword(password);
+      let isMatch;
+      if (memberId) {
+        // Password was not checked yet for memberId case
+        isMatch = await selectedUser.comparePassword(password);
+      } else {
+        // Password was already checked for multiple accounts case
+        isMatch = true;
+      }
+      
       console.log('Password match:', isMatch);
       if (!isMatch) {
         return res.status(401).json({ message: 'Invalid password' });
@@ -120,7 +137,8 @@ router.post('/login-by-phone', async (req, res) => {
       interestEarned: u.interestEarned || 0
     }));
     
-    console.log('Returning accounts:', accounts.length);
+    console.log('Returning accounts:', accounts.length, 'token:', token ? 'yes' : 'no');
+    
     res.json({
       accounts,
       token, // Only present if password was checked for a selected account
