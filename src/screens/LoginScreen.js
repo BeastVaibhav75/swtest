@@ -30,15 +30,11 @@ export default function LoginScreen({ navigation }) {
 
     try {
       const result = await loginByPhone(phone, password);
-      if (result && result.accounts && result.accounts.length > 1) {
+      
+      // Always show account selection modal if accounts are returned
+      if (result && result.accounts && result.accounts.length > 0) {
         setAccountOptions(result.accounts);
         setShowAccountModal(true);
-      } else if (result && result.accounts && result.accounts.length === 1) {
-        // Only one account, already logged in
-        navigation.reset({
-          index: 0,
-          routes: [{ name: result.accounts[0].role === 'admin' ? 'Main' : 'MemberHome' }],
-        });
       }
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
