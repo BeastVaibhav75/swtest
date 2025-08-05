@@ -29,14 +29,20 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
+      console.log('Calling loginByPhone with phone:', phone);
       const result = await loginByPhone(phone, password);
+      console.log('Login result:', result);
       
       // Always show account selection modal if accounts are returned
       if (result && result.accounts && result.accounts.length > 0) {
+        console.log('Setting account options:', result.accounts.length);
         setAccountOptions(result.accounts);
         setShowAccountModal(true);
+      } else {
+        console.log('No accounts found in result:', result);
       }
     } catch (error) {
+      console.error('Login error:', error);
       Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
     }
   };

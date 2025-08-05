@@ -76,11 +76,13 @@ export const AuthProvider = ({ children }) => {
   const loginByPhone = async (phoneNumber, password, memberId = null) => {
     try {
       setLoading(true);
+      console.log('AuthContext: Calling login-by-phone with:', { phoneNumber, memberId });
       const response = await axios.post(`${API_URL}/auth/login-by-phone`, {
         phone: phoneNumber,
         password,
         memberId,
       });
+      console.log('AuthContext: Backend response:', response.data);
       const { accounts: accList, token, selectedAccount: selAcc } = response.data;
       setAccounts(accList || []);
       setSelectedAccount(selAcc || null);
@@ -95,6 +97,7 @@ export const AuthProvider = ({ children }) => {
           return userData;
         }
       }
+      console.log('AuthContext: Returning accounts:', accList);
       return { accounts: accList };
     } catch (error) {
       console.error('Login by phone error:', error);
