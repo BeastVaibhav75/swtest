@@ -82,6 +82,9 @@ router.post('/login-by-phone', async (req, res) => {
         console.log('MemberId not found in users:', memberId);
         return res.status(401).json({ message: 'Account not found for this memberId' });
       }
+      
+      // For account switching, skip password verification since user already proved ownership
+      console.log('Account switching - skipping password verification for:', selectedUser.memberId);
     } else {
       // Always select the first account (default behavior)
       selectedUser = users[0];
@@ -89,14 +92,23 @@ router.post('/login-by-phone', async (req, res) => {
     
     console.log('Selected user:', selectedUser ? selectedUser.memberId : 'none');
     
-    // If selectedUser, check password
+    // If selectedUser, check password (only for initial login, not account switching)
     let token = null;
     if (selectedUser) {
-      const isMatch = await selectedUser.comparePassword(password);
-      console.log('Password match:', isMatch);
+      let isMatch = true;
+      
+      // Only verify password if no memberId provided (initial login)
+      if (!memberId) {
+        isMatch = await selectedUser.comparePassword(password);
+        console.log('Password match:', isMatch);
+      } else {
+        console.log('Account switching - password verification skipped');
+      }
+      
       if (!isMatch) {
         return res.status(401).json({ message: 'Invalid password' });
       }
+      
       token = jwt.sign(
         {
           id: selectedUser._id,

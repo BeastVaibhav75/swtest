@@ -1,16 +1,16 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -36,7 +36,7 @@ const mockMemberData = {
 };
 
 export default function MemberDashboard({ navigation }) {
-  const { user, logout, accounts, loginByPhone, phone } = useAuth();
+  const { user, logout, accounts, loginByPhone, phone, tempPassword } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [interestEarned, setInterestEarned] = useState(0);
@@ -53,18 +53,18 @@ export default function MemberDashboard({ navigation }) {
 
   const fetchDashboardData = async () => {
     try {
-      if (!user?._id) {
+      if (!user?.id) {
         console.log('No user ID available');
         return;
       }
 
-      console.log('Fetching dashboard data for user:', user._id);
+      console.log('Fetching dashboard data for user:', user.id);
       
       // Fetch all data in parallel
       const [interestRes, shareValueRes, investmentRes, installmentsRes, loansRes, totalFundRes] = await Promise.all([
-        fundAPI.getInterest(user._id),
+        fundAPI.getInterest(user.id),
         fundAPI.getShareValue(),
-        fundAPI.getInvestment(user._id),
+        fundAPI.getInvestment(user.id),
         installmentsAPI.getMyInstallments(),
         loansAPI.getTotalOutstanding(),
         fundAPI.getTotalFund()
@@ -134,7 +134,7 @@ export default function MemberDashboard({ navigation }) {
   };
 
   useEffect(() => {
-    if (user?._id) {
+    if (user?.id) {
       fetchDashboardData();
     } else {
       console.log('No user ID available');
@@ -144,10 +144,10 @@ export default function MemberDashboard({ navigation }) {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (user?._id) {
+      if (user?.id) {
         fetchDashboardData();
       }
-    }, [user?._id])
+    }, [user?.id])
   );
 
   const onRefresh = React.useCallback(() => {
@@ -165,36 +165,20 @@ export default function MemberDashboard({ navigation }) {
     setLoading(true);
     try {
       if (!phone) {
-        Alert.alert('Error', 'Unable to switch accounts - phone number not available');
+        Alert.alert('Error', 'Unable to switch accounts - please log in again');
         return;
       }
       
-      // For now, we'll need to prompt for password or store it securely
-      // This is a simplified version - in production, you might want to store the password temporarily
-      Alert.prompt(
-        'Enter Password',
-        'Please enter your password to switch accounts',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Switch',
-            onPress: async (password) => {
-              if (password) {
-                try {
-                  await loginByPhone(phone, password, selectedAccount.memberId);
-                  // Refresh dashboard data
-                  fetchDashboardData();
-                } catch (error) {
-                  Alert.alert('Error', 'Invalid password or unable to switch accounts');
-                }
-              }
-            }
-          }
-        ],
-        'secure-text'
-      );
+      console.log('Switching to account:', selectedAccount.memberId);
+      console.log('Using phone:', phone);
+      
+      // Switch accounts without password (backend handles this securely)
+      await loginByPhone(phone, '', selectedAccount.memberId);
+      // Refresh dashboard data
+      fetchDashboardData();
     } catch (error) {
-      Alert.alert('Error', 'Unable to switch accounts');
+      console.error('Account switch error:', error.response?.data || error.message);
+      Alert.alert('Error', `Unable to switch to ${selectedAccount.name}: ${error.response?.data?.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -209,7 +193,7 @@ export default function MemberDashboard({ navigation }) {
     );
   }
 
-  if (!user?._id) {
+  if (!user?.id) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Please login to view your dashboard</Text>

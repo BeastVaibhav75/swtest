@@ -19,12 +19,14 @@ export const AuthProvider = ({ children }) => {
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [phone, setPhone] = useState(null);
+  const [tempPassword, setTempPassword] = useState(null);
 
   // Check for stored user data on app start
   useEffect(() => {
     const loadStoredUser = async () => {
       try {
         const storedUser = await AsyncStorage.getItem('user');
+        const storedAccounts = await AsyncStorage.getItem('accounts');
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
           // Ensure _id is set from id
@@ -32,6 +34,10 @@ export const AuthProvider = ({ children }) => {
             parsedUser._id = parsedUser.id;
           }
           setUser(parsedUser);
+        }
+        if (storedAccounts) {
+          const parsedAccounts = JSON.parse(storedAccounts);
+          setAccounts(parsedAccounts);
         }
       } catch (error) {
         console.error('Error loading stored user:', error);
@@ -91,9 +97,14 @@ export const AuthProvider = ({ children }) => {
         // Find the selected account object
         const userData = accList.find(acc => acc.memberId === selAcc);
         if (userData) {
+          console.log('AuthContext: Setting user data:', userData);
           await AsyncStorage.setItem('token', token);
           await AsyncStorage.setItem('user', JSON.stringify(userData));
+          await AsyncStorage.setItem('accounts', JSON.stringify(accList));
           setUser(userData);
+          setAccounts(accList);
+          setTempPassword(password); // Store password temporarily
+          console.log('AuthContext: User state should be updated');
           return userData;
         }
       }
@@ -110,8 +121,12 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       setLoading(true);
-      await AsyncStorage.multiRemove(['user', 'token']);
+      await AsyncStorage.multiRemove(['user', 'token', 'accounts']);
       setUser(null);
+      setAccounts([]);
+      setSelectedAccount(null);
+      setPhone(null);
+      setTempPassword(null);
       return true;
     } catch (error) {
       console.error('Logout error:', error);
@@ -131,6 +146,7 @@ export const AuthProvider = ({ children }) => {
     setSelectedAccount,
     setAccounts,
     phone,
+    tempPassword,
     logout,
   };
 

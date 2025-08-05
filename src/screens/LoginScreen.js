@@ -30,11 +30,10 @@ export default function LoginScreen({ navigation }) {
       console.log('Login result:', result);
       
       // If user data is returned, login was successful
+      // The AppNavigator will automatically handle routing based on user state
       if (result && result.id) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: result.role === 'admin' ? 'Main' : 'MemberHome' }],
-        });
+        // No need to navigate manually - AppNavigator will handle it
+        console.log('Login successful, user role:', result.role);
       }
     } catch (error) {
       console.error('Login error:', error);
