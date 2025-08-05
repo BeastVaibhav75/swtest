@@ -59,6 +59,65 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Multi-account login by phone
+router.post('/login-by-phone', async (req, res) => {
+  try {
+    const { phone, password, memberId } = req.body;
+    // Find all users with this phone
+    const users = await User.find({ phone });
+    if (!users || users.length === 0) {
+      return res.status(401).json({ message: 'No accounts found for this phone number' });
+    }
+    // If memberId is provided, use that account for password check
+    let selectedUser = null;
+    if (memberId) {
+      selectedUser = users.find(u => u.memberId === memberId);
+      if (!selectedUser) {
+        return res.status(401).json({ message: 'Account not found for this memberId' });
+      }
+    } else {
+      // If only one account, use it
+      if (users.length === 1) {
+        selectedUser = users[0];
+      }
+    }
+    // If selectedUser, check password
+    let token = null;
+    if (selectedUser) {
+      const isMatch = await selectedUser.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid password' });
+      }
+      token = jwt.sign(
+        {
+          id: selectedUser._id,
+          memberId: selectedUser.memberId,
+          role: selectedUser.role
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+    }
+    // Prepare accounts list (do not include password)
+    const accounts = users.map(u => ({
+      id: u._id,
+      memberId: u.memberId,
+      name: u.name,
+      role: u.role,
+      investmentBalance: u.investmentBalance || 0,
+      interestEarned: u.interestEarned || 0
+    }));
+    res.json({
+      accounts,
+      token, // Only present if password was checked for a selected account
+      selectedAccount: selectedUser ? selectedUser.memberId : null
+    });
+  } catch (error) {
+    console.error('Login by phone error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create member route
 router.post('/members', async (req, res) => {
   try {

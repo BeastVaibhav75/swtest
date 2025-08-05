@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    FlatList,
+    Modal,
     StyleSheet,
     Text,
     TextInput,
@@ -19,36 +21,51 @@ import { useAuth } from '../../context/AuthContext';
 const API_URL = 'https://swanidhi-backend.onrender.com/api';
 
 export default function LoginScreen({ navigation }) {
-  const [memberId, setMemberId] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountOptions, setAccountOptions] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const { loginByPhone } = useAuth();
 
   const handleLogin = async () => {
-    if (!memberId || !password) {
+    if (!phone || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
     try {
       setLoading(true);
-      const userData = await login(memberId, password);
-      console.log('Login successful, navigating to:', userData.role === 'admin' ? 'Main' : 'MemberHome');
-      
-      // Reset navigation stack and navigate to appropriate screen
+      const result = await loginByPhone(phone, password);
+      if (result && result.accounts && result.accounts.length > 1) {
+        setAccountOptions(result.accounts);
+        setShowAccountModal(true);
+      } else if (result && result.accounts && result.accounts.length === 1) {
+        // Only one account, already logged in
+        navigation.reset({
+          index: 0,
+          routes: [{ name: result.accounts[0].role === 'admin' ? 'Main' : 'MemberHome' }],
+        });
+      }
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAccountSelect = async (account) => {
+    setShowAccountModal(false);
+    setLoading(true);
+    try {
+      const userData = await loginByPhone(phone, password, account.memberId);
       navigation.reset({
         index: 0,
-        routes: [{ 
-          name: userData.role === 'admin' ? 'Main' : 'MemberHome'
-        }],
+        routes: [{ name: userData.role === 'admin' ? 'Main' : 'MemberHome' }],
       });
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Invalid credentials'
-      );
+      Alert.alert('Error', error.response?.data?.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -68,17 +85,16 @@ export default function LoginScreen({ navigation }) {
       <View style={styles.form}>
         <Text style={styles.title}>Swanidhi</Text>
         <Text style={styles.subtitle}>Loan Management System</Text>
-
-        <Text style={styles.label}>Member ID</Text>
+        <Text style={styles.label}>Phone Number</Text>
         <TextInput
           style={[styles.input, { color: 'black' }]}
-          value={memberId}
-          onChangeText={setMemberId}
-          placeholder="Enter your member ID"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="Enter your phone number"
           placeholderTextColor="black"
+          keyboardType="phone-pad"
           editable={!loading}
         />
-
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
@@ -101,7 +117,6 @@ export default function LoginScreen({ navigation }) {
             />
           </TouchableOpacity>
         </View>
-
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
@@ -111,17 +126,34 @@ export default function LoginScreen({ navigation }) {
             {loading ? 'Logging in...' : 'Login'}
           </Text>
         </TouchableOpacity>
-
-        {memberId.toLowerCase().startsWith('a') && (
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={() => navigation.navigate('ResetPassword')}
-            disabled={loading}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        )}
       </View>
+      <Modal
+        visible={showAccountModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 10, padding: 20, width: '80%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Select Account</Text>
+            <FlatList
+              data={accountOptions}
+              keyExtractor={item => item.memberId}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                  onPress={() => handleAccountSelect(item)}
+                >
+                  <Text style={{ fontSize: 16 }}>{item.name} ({item.memberId})</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity onPress={() => setShowAccountModal(false)} style={{ marginTop: 10 }}>
+              <Text style={{ color: 'red', textAlign: 'center' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

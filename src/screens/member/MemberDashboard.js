@@ -1,14 +1,16 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
@@ -34,7 +36,7 @@ const mockMemberData = {
 };
 
 export default function MemberDashboard({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, logout, accounts, loginByPhone, phone } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [interestEarned, setInterestEarned] = useState(0);
@@ -46,6 +48,7 @@ export default function MemberDashboard({ navigation }) {
   const [loans, setLoans] = useState(0);
   const [totalFund, setTotalFund] = useState(0);
   const [monthlyInterestEarned, setMonthlyInterestEarned] = useState(0);
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const { updating } = useUpdateCheck();
 
   const fetchDashboardData = async () => {
@@ -157,6 +160,46 @@ export default function MemberDashboard({ navigation }) {
     fetchDashboardData();
   }, [user]);
 
+  const handleAccountSwitch = async (selectedAccount) => {
+    setShowAccountModal(false);
+    setLoading(true);
+    try {
+      if (!phone) {
+        Alert.alert('Error', 'Unable to switch accounts - phone number not available');
+        return;
+      }
+      
+      // For now, we'll need to prompt for password or store it securely
+      // This is a simplified version - in production, you might want to store the password temporarily
+      Alert.prompt(
+        'Enter Password',
+        'Please enter your password to switch accounts',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Switch',
+            onPress: async (password) => {
+              if (password) {
+                try {
+                  await loginByPhone(phone, password, selectedAccount.memberId);
+                  // Refresh dashboard data
+                  fetchDashboardData();
+                } catch (error) {
+                  Alert.alert('Error', 'Invalid password or unable to switch accounts');
+                }
+              }
+            }
+          }
+        ],
+        'secure-text'
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Unable to switch accounts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
@@ -194,7 +237,19 @@ export default function MemberDashboard({ navigation }) {
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Member Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Member'}</Text>
+          <TouchableOpacity 
+            onPress={() => {
+              if (accounts && accounts.length > 1) {
+                setShowAccountModal(true);
+              }
+            }}
+            disabled={!accounts || accounts.length <= 1}
+          >
+            <Text style={[styles.headerSubtitle, accounts && accounts.length > 1 && styles.clickableText]}>
+              Welcome, {user?.name || 'Member'}
+              {accounts && accounts.length > 1 && ' (Tap to switch)'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Cash in Hand Section */}
@@ -292,6 +347,44 @@ export default function MemberDashboard({ navigation }) {
         </View>
         */}
       </ScrollView>
+      
+      {/* Account Switcher Modal */}
+      <Modal
+        visible={showAccountModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Switch Account</Text>
+            <FlatList
+              data={accounts}
+              keyExtractor={item => item.memberId}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.accountItem,
+                    item.memberId === user.memberId && styles.selectedAccountItem
+                  ]}
+                  onPress={() => handleAccountSwitch(item)}
+                >
+                  <Text style={styles.accountName}>{item.name} ({item.memberId})</Text>
+                  {item.memberId === user.memberId && (
+                    <Text style={styles.currentAccountText}>Current</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity 
+              onPress={() => setShowAccountModal(false)} 
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -457,5 +550,56 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#007AFF',
+  },
+  clickableText: {
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  accountItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedAccountItem: {
+    backgroundColor: '#f0f8ff',
+  },
+  accountName: {
+    fontSize: 16,
+    flex: 1,
+  },
+  currentAccountText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    marginTop: 15,
+    padding: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#dc3545',
+    fontSize: 16,
   },
 }); 

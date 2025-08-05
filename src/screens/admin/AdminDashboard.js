@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { format } from 'date-fns';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, LayoutAnimation, Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, LayoutAnimation, Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
@@ -45,9 +45,10 @@ export default function AdminDashboard() {
   const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
   const [diagnosticData, setDiagnosticData] = useState(null);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const navigation = useNavigation();
   const route = useRoute();
-  const { user, logout } = useAuth();
+  const { user, logout, accounts, loginByPhone, phone } = useAuth();
   const { updating } = useUpdateCheck();
 
   useEffect(() => {
@@ -221,6 +222,46 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAccountSwitch = async (selectedAccount) => {
+    setShowAccountModal(false);
+    setLoading(true);
+    try {
+      if (!phone) {
+        Alert.alert('Error', 'Unable to switch accounts - phone number not available');
+        return;
+      }
+      
+      // For now, we'll need to prompt for password or store it securely
+      // This is a simplified version - in production, you might want to store the password temporarily
+      Alert.prompt(
+        'Enter Password',
+        'Please enter your password to switch accounts',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Switch',
+            onPress: async (password) => {
+              if (password) {
+                try {
+                  await loginByPhone(phone, password, selectedAccount.memberId);
+                  // Refresh dashboard data
+                  fetchDashboardData();
+                } catch (error) {
+                  Alert.alert('Error', 'Invalid password or unable to switch accounts');
+                }
+              }
+            }
+          }
+        ],
+        'secure-text'
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Unable to switch accounts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -258,7 +299,19 @@ export default function AdminDashboard() {
         {/* Dashboard Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Admin Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Welcome, {user?.name || 'Admin'}</Text>
+          <TouchableOpacity 
+            onPress={() => {
+              if (accounts && accounts.length > 1) {
+                setShowAccountModal(true);
+              }
+            }}
+            disabled={!accounts || accounts.length <= 1}
+          >
+            <Text style={[styles.headerSubtitle, accounts && accounts.length > 1 && styles.clickableText]}>
+              Welcome, {user?.name || 'Admin'}
+              {accounts && accounts.length > 1 && ' (Tap to switch)'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Cash in Hand / Total Fund Section with Toggle */}
@@ -588,6 +641,44 @@ export default function AdminDashboard() {
           </View>
         </Modal>
       </ScrollView>
+      
+      {/* Account Switcher Modal */}
+      <Modal
+        visible={showAccountModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Switch Account</Text>
+            <FlatList
+              data={accounts}
+              keyExtractor={item => item.memberId}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.accountItem,
+                    item.memberId === user.memberId && styles.selectedAccountItem
+                  ]}
+                  onPress={() => handleAccountSwitch(item)}
+                >
+                  <Text style={styles.accountName}>{item.name} ({item.memberId})</Text>
+                  {item.memberId === user.memberId && (
+                    <Text style={styles.currentAccountText}>Current</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity 
+              onPress={() => setShowAccountModal(false)} 
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -872,5 +963,37 @@ const styles = StyleSheet.create({
   },
   diagnosticScrollView: {
     maxHeight: '80%',
+  },
+  clickableText: {
+    textDecorationLine: 'underline',
+  },
+  accountItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedAccountItem: {
+    backgroundColor: '#f0f8ff',
+  },
+  accountName: {
+    fontSize: 16,
+    flex: 1,
+  },
+  currentAccountText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    marginTop: 15,
+    padding: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#dc3545',
+    fontSize: 16,
   },
 }); 

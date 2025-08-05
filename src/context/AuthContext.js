@@ -16,6 +16,9 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [phone, setPhone] = useState(null);
 
   // Check for stored user data on app start
   useEffect(() => {
@@ -69,6 +72,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // New login by phone (multi-account)
+  const loginByPhone = async (phoneNumber, password, memberId = null) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API_URL}/auth/login-by-phone`, {
+        phone: phoneNumber,
+        password,
+        memberId,
+      });
+      const { accounts: accList, token, selectedAccount: selAcc } = response.data;
+      setAccounts(accList || []);
+      setSelectedAccount(selAcc || null);
+      setPhone(phoneNumber);
+      if (token && selAcc) {
+        // Find the selected account object
+        const userData = accList.find(acc => acc.memberId === selAcc);
+        if (userData) {
+          await AsyncStorage.setItem('token', token);
+          await AsyncStorage.setItem('user', JSON.stringify(userData));
+          setUser(userData);
+          return userData;
+        }
+      }
+      return { accounts: accList };
+    } catch (error) {
+      console.error('Login by phone error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       setLoading(true);
@@ -87,6 +122,12 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    loginByPhone,
+    accounts,
+    selectedAccount,
+    setSelectedAccount,
+    setAccounts,
+    phone,
     logout,
   };
 
