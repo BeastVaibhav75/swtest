@@ -8,6 +8,7 @@ const authenticate = require('../middleware/authenticate');
 const Logger = require('../services/logger');
 const Loan = require('../models/Loan');
 const mongoose = require('mongoose');
+const Job = require('../models/Job');
 
 // Test endpoint
 router.get('/test', (req, res) => {
@@ -362,6 +363,17 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Job status endpoint
+router.get('/quick-add/status/:jobId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.jobId);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    res.json({ status: job.status, progress: job.progress, total: job.total, error: job.error, result: job.result });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Bulk quick-add installments to all members (fast, atomic-ish)
 router.post('/quick-add', authenticate, isAdmin, async (req, res) => {
   try {
@@ -376,81 +388,92 @@ router.post('/quick-add', authenticate, isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'No active members found' });
     }
 
-    // Prepare bulk writes
-    const installmentInserts = members.map(m => ({
-      insertOne: {
-        document: {
-          memberId: m._id,
-          amount,
-          date: targetDate,
-          recordedBy: req.user.userId
-        }
-      }
-    }));
-
-    // Insert installments in bulk
-    const installmentResult = await Installment.bulkWrite(installmentInserts);
-
-    // Fetch the created installment ids (Mongo returns nInserted, but not ids in bulkWrite)
-    // We'll re-query minimal docs for the date/amount/recorder combo to build histories quickly
-    const createdInstallments = await Installment.find({
-      amount,
-      date: targetDate,
-      recordedBy: req.user.userId
-    }).select('_id memberId amount');
-
-    // Bulk update members' investmentBalance
-    const memberUpdates = members.map(m => ({
-      updateOne: {
-        filter: { _id: m._id },
-        update: { $inc: { investmentBalance: amount } }
-      }
-    }));
-    await User.bulkWrite(memberUpdates);
-
-    // Bulk update fund
-    const fund = await Fund.findOne();
-    if (fund) {
-      fund.totalFund = (fund.totalFund || 0) + amount * members.length;
-      await fund.save();
-    } else {
-      const newFund = new Fund({ totalFund: amount * members.length });
-      await newFund.save();
-    }
-
-    // Bulk insert InvestmentHistory
-    const historyInserts = createdInstallments.map(ci => ({
-      insertOne: {
-        document: {
-          memberId: ci.memberId,
-          amount: ci.amount,
-          type: 'installment',
-          refId: ci._id.toString()
-        }
-      }
-    }));
-    await InvestmentHistory.bulkWrite(historyInserts);
-
-    // Log one aggregated transaction
-    await Logger.logTransaction({
-      type: 'installment',
-      action: 'created',
-      amount: amount * members.length,
-      memberId: undefined,
-      memberName: 'Bulk Quick Add',
-      memberIdCode: 'BULK',
-      referenceId: undefined,
-      referenceType: 'installment_bulk',
-      description: `Quick add ₹${amount} to ${members.length} members on ${targetDate.toISOString().slice(0,10)}`,
-      performedBy: req.user.userId,
-      performedByName: 'Admin',
-      fundImpact: amount * members.length,
-      balancesBefore: {},
-      balancesAfter: {},
-      additionalData: { count: members.length, amountPerMember: amount, date: targetDate }
+    // Create job
+    const job = await Job.create({
+      type: 'quick_add_installments',
+      status: 'pending',
+      total: members.length,
+      progress: 0,
+      meta: { amount, date: targetDate, performedBy: req.user.userId }
     });
 
-    res.status(201).json({ inserted: installmentResult.insertedCount || members.length });
+    // Start async processing (fire-and-forget)
+    setImmediate(async () => {
+      try {
+        job.status = 'running';
+        await job.save();
+
+        // Prepare bulk writes
+        const installmentInserts = members.map(m => ({
+          insertOne: {
+            document: {
+              memberId: m._id,
+              amount,
+              date: targetDate,
+              recordedBy: req.user.userId
+            }
+          }
+        }));
+        await Installment.bulkWrite(installmentInserts);
+
+        // Re-query created installments
+        const createdInstallments = await Installment.find({ amount, date: targetDate, recordedBy: req.user.userId }).select('_id memberId amount');
+
+        // Bulk update members and histories in chunks to avoid memory spikes
+        const chunkSize = 500;
+        for (let i = 0; i < members.length; i += chunkSize) {
+          const chunkMembers = members.slice(i, i + chunkSize);
+          const updates = chunkMembers.map(m => ({ updateOne: { filter: { _id: m._id }, update: { $inc: { investmentBalance: amount } } } }));
+          await User.bulkWrite(updates);
+          job.progress = Math.min(job.total, i + chunkMembers.length);
+          await job.save();
+        }
+
+        // Update fund
+        const fund = await Fund.findOne();
+        if (fund) {
+          fund.totalFund = (fund.totalFund || 0) + amount * members.length;
+          await fund.save();
+        } else {
+          const newFund = new Fund({ totalFund: amount * members.length });
+          await newFund.save();
+        }
+
+        // Histories in chunks
+        for (let i = 0; i < createdInstallments.length; i += chunkSize) {
+          const chunk = createdInstallments.slice(i, i + chunkSize);
+          const historyInserts = chunk.map(ci => ({ insertOne: { document: { memberId: ci.memberId, amount: ci.amount, type: 'installment', refId: ci._id.toString() } } }));
+          await InvestmentHistory.bulkWrite(historyInserts);
+        }
+
+        await Logger.logTransaction({
+          type: 'installment',
+          action: 'created',
+          amount: amount * members.length,
+          memberName: 'Bulk Quick Add',
+          memberIdCode: 'BULK',
+          referenceType: 'installment_bulk',
+          description: `Quick add ₹${amount} to ${members.length} members on ${targetDate.toISOString().slice(0,10)}`,
+          performedBy: req.user.userId,
+          performedByName: 'Admin',
+          fundImpact: amount * members.length,
+          balancesBefore: {},
+          balancesAfter: {},
+          additionalData: { count: members.length, amountPerMember: amount, date: targetDate }
+        });
+
+        job.status = 'completed';
+        job.result = { inserted: members.length };
+        job.progress = job.total;
+        await job.save();
+      } catch (err) {
+        job.status = 'failed';
+        job.error = err?.message || 'Unknown error';
+        await job.save();
+      }
+    });
+
+    res.status(202).json({ jobId: job._id });
   } catch (error) {
     console.error('Quick add installments error:', error);
     res.status(500).json({ message: 'Server error' });

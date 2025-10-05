@@ -113,6 +113,7 @@ export const installmentsAPI = {
   delete: (installmentId) => api.delete(`/installments/${installmentId}`),
   diagnostic: () => api.get('/installments/diagnostic'),
   quickAdd: (amount, date) => api.post('/installments/quick-add', { amount, date }),
+  quickAddStatus: (jobId) => api.get(`/installments/quick-add/status/${jobId}`),
 };
 
 // Expenses API

@@ -90,20 +90,28 @@ export default function UpdatePage({ navigation }) {
             setQuickAddLoading(true);
             try {
               const res = await installmentsAPI.quickAdd(1000, quickAddDate);
-              Alert.alert(
-                'Success',
-                `Installments added to ${members.length} members`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      setShowQuickAddModal(false);
-                      setQuickAddDate('');
-                      navigation.navigate('AdminDashboard');
-                    }
-                  }
-                ]
-              );
+              const jobId = res?.data?.jobId;
+              if (!jobId) {
+                throw new Error('No job id returned');
+              }
+              // Poll for completion
+              let done = false;
+              while (!done) {
+                await new Promise(r => setTimeout(r, 1500));
+                const status = await installmentsAPI.quickAddStatus(jobId);
+                const s = status?.data?.status;
+                if (s === 'completed') {
+                  done = true;
+                  break;
+                }
+                if (s === 'failed') {
+                  throw new Error(status?.data?.error || 'Quick add failed');
+                }
+              }
+              Alert.alert('Success', `Installments added to ${members.length} members`);
+              setShowQuickAddModal(false);
+              setQuickAddDate('');
+              navigation.navigate('AdminDashboard');
             } catch (error) {
               Alert.alert('Error', error.response?.data?.message || 'Failed to add installments');
             } finally {
