@@ -121,7 +121,11 @@ export default function UpdateLoansScreen({ navigation }) {
     try {
       // If multiple active loans, call the single backend endpoint once
       if (activeLoans.length > 1) {
-        await loansAPI.repayMember(selectedMember._id, Number(isNaN(repaymentAmount) ? 0 : repaymentAmount));
+        await loansAPI.repayMember(
+          selectedMember._id,
+          Number(isNaN(repaymentAmount) ? 0 : repaymentAmount),
+          date || undefined
+        );
 
         const successMessage = (Number(repaymentAmount) === 0)
           ? 'Interest distributed for all active loans'
@@ -155,7 +159,11 @@ export default function UpdateLoansScreen({ navigation }) {
         }
 
         // Add repayment to the loan (even if amount is 0, it will distribute interest)
-        await loansAPI.addRepayment(selectedLoan._id, repaymentAmount);
+        await loansAPI.addRepayment(
+          selectedLoan._id,
+          repaymentAmount,
+          date || undefined
+        );
 
         const successMessage = repaymentAmount === 0 
           ? 'Interest distributed successfully (no repayment recorded)' 

@@ -376,7 +376,7 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
 // Add repayment to loan
 router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, date } = req.body;
     const loan = await Loan.findById(req.params.loanId);
     
     if (!loan) {
@@ -412,7 +412,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
         // Add interest payment record to the loan
         const newInterestPayment = {
           amount: interestAmount,
-          date: new Date(),
+          date: date ? new Date(date) : new Date(),
           distributionId: earningsDistribution._id
         };
         loan.interestPayments.push(newInterestPayment);
@@ -455,7 +455,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
 
     // Add repayment to loan if amount is not 0
     if (repaymentAmount > 0) {
-      loan.repayments.push({ amount: repaymentAmount, date: new Date(), interestPaymentId: createdInterestPaymentId || undefined });
+      loan.repayments.push({ amount: repaymentAmount, date: date ? new Date(date) : new Date(), interestPaymentId: createdInterestPaymentId || undefined });
       
       // Log the repayment transaction
       await Logger.logRepayment(loan, repaymentAmount, req.user.userId);
@@ -481,7 +481,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
 // Repay across member's active loans (oldest first)
 router.post('/repay-member', authenticate, isAdmin, async (req, res) => {
   try {
-    const { memberId, amount } = req.body;
+    const { memberId, amount, date } = req.body;
     if (!memberId) {
       return res.status(400).json({ message: 'memberId is required' });
     }
@@ -516,7 +516,7 @@ router.post('/repay-member', authenticate, isAdmin, async (req, res) => {
           });
           await earningsDistribution.save();
 
-          loan.interestPayments.push({ amount: interestAmount, date: new Date(), distributionId: earningsDistribution._id });
+          loan.interestPayments.push({ amount: interestAmount, date: date ? new Date(date) : new Date(), distributionId: earningsDistribution._id });
           createdInterestPaymentId = loan.interestPayments[loan.interestPayments.length - 1]._id;
 
           // Update fund and members' interest earned
@@ -549,7 +549,7 @@ router.post('/repay-member', authenticate, isAdmin, async (req, res) => {
       // 2) Apply allocated principal repayment for this loan (skip when 0)
       const alloc = Math.max(0, Math.min(remaining, Number(loan.outstanding || 0)));
       if (alloc > 0) {
-        loan.repayments.push({ amount: alloc, date: new Date(), interestPaymentId: createdInterestPaymentId || undefined });
+        loan.repayments.push({ amount: alloc, date: date ? new Date(date) : new Date(), interestPaymentId: createdInterestPaymentId || undefined });
         await Logger.logRepayment(loan, alloc, req.user.userId);
       }
 
