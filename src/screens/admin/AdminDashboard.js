@@ -465,6 +465,9 @@ export default function AdminDashboard() {
             </TouchableOpacity>
           </View>
           <View style={styles.actionButtonsBottomRow}>
+            <TouchableOpacity style={[styles.actionButton, styles.bottomButton]} onPress={() => navigation.navigate('UpdateLoansScreen')}>
+              <Text style={styles.actionButtonText}>Update Loans</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.actionButton, styles.bottomButton]} onPress={() => setIsExpenseModalVisible(true)}>
               <Text style={styles.actionButtonText}>Add Expense</Text>
             </TouchableOpacity>
@@ -815,7 +818,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionButtonsBottomRow: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
   },
   actionButtonsBottomRowSpaced: {
     alignItems: 'center',
@@ -831,8 +837,8 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   bottomButton: {
-    width: '50%',
-    minWidth: 150,
+    flex: 1,
+    minWidth: 120,
   },
   actionButtonText: {
     color: 'white',

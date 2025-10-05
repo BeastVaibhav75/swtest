@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     StyleSheet,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../context/AuthContext';
+import { maintenanceAPI } from '../../services/api';
 
 const settingsItems = [
   {
@@ -43,6 +44,33 @@ const settingsItems = [
 
 export default function SettingsScreen({ navigation }) {
   const { logout, user } = useAuth();
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const res = await maintenanceAPI.getStatus();
+        setMaintenanceEnabled(Boolean(res?.data?.enabled));
+      } catch (e) {}
+    };
+    loadStatus();
+  }, []);
+
+  const toggleMaintenance = async () => {
+    if (user?.role !== 'admin') return;
+    try {
+      setSaving(true);
+      const next = !maintenanceEnabled;
+      const res = await maintenanceAPI.setStatus(next);
+      setMaintenanceEnabled(Boolean(res?.data?.enabled));
+      Alert.alert('Success', next ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update maintenance mode');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleAction = (action) => {
     switch (action) {
@@ -115,6 +143,19 @@ export default function SettingsScreen({ navigation }) {
 
       <View style={styles.section}>
         {settingsItems.map(renderSettingItem)}
+        {user?.role === 'admin' && (
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={toggleMaintenance}
+            disabled={saving}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: maintenanceEnabled ? '#FF3B30' : '#34C759' }]}> 
+              <Icon name="tools" size={24} color="#FFFFFF" />
+            </View>
+            <Text style={styles.settingTitle}>{maintenanceEnabled ? 'Disable Maintenance Mode' : 'Enable Maintenance Mode'}</Text>
+            <Icon name="chevron-right" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.settingItem}
           onPress={() => navigation.navigate('ManageMembers')}

@@ -121,4 +121,10 @@ export const earningsAPI = {
   getByType: (type) => api.get(`/earnings-distribution/type/${type}`),
 };
 
+// Maintenance API
+export const maintenanceAPI = {
+  getStatus: () => api.get('/maintenance'), // public endpoint, token not required
+  setStatus: (enabled, message) => api.post('/maintenance', { enabled, message }),
+};
+
 export default api; 

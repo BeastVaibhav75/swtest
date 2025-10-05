@@ -40,6 +40,9 @@
       "url": "https://u.expo.dev/6b06e31b-8a74-40f8-afd5-475400e7b84f",
       "checkAutomatically": "ON_LOAD"
     },
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": "1.0.0",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

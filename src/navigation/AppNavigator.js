@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 
 // Admin Screens
+import { useEffect, useState } from 'react';
 import AboutScreen from '../screens/admin/AboutScreen';
 import ActivitiesScreen from '../screens/admin/ActivitiesScreen';
 import AddMember from '../screens/admin/AddMember';
@@ -17,17 +18,20 @@ import ChangePasswordScreen from '../screens/admin/ChangePasswordScreen';
 import FundsDetailsScreen from '../screens/admin/FundsDetailsScreen';
 import GiveLoanPage from '../screens/admin/GiveLoanPage';
 import HistoryScreen from '../screens/admin/HistoryScreen';
+import MaintenanceScreen from '../screens/admin/MaintenanceScreen';
 import ManageMembers from '../screens/admin/ManageMembers';
 import MemberDetailScreen from '../screens/admin/MemberDetailScreen';
 import ReportDetail from '../screens/admin/ReportDetail';
 import ReportsScreen from '../screens/admin/ReportsScreen';
 import SettingsScreen from '../screens/admin/SettingsScreen';
 import ShareValueGrowthScreen from '../screens/admin/ShareValueGrowthScreen';
+import UpdateLoansScreen from '../screens/admin/UpdateLoansScreen';
 import UpdatePage from '../screens/admin/UpdatePage';
 import GiveLoanScreen from '../screens/GiveLoanScreen';
 import PaymentHistory from '../screens/member/PaymentHistory';
 import MembersScreen from '../screens/MembersScreen';
 import RecordInstallmentScreen from '../screens/RecordInstallmentScreen';
+import { maintenanceAPI } from '../services/api';
 
 // Member Navigation
 import MemberNavigator from './MemberNavigator';
@@ -76,6 +80,7 @@ const DashboardStack = () => (
     <Stack.Screen name="FundsDetails" component={FundsDetailsScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ShareValueGrowth" component={ShareValueGrowthScreen} options={{ headerShown: false }} />
     <Stack.Screen name="UpdatePage" component={UpdatePage} options={{ headerShown: false }} />
+    <Stack.Screen name="UpdateLoansScreen" component={UpdateLoansScreen} options={{ headerShown: false }} />
     <Stack.Screen name="GiveLoanPage" component={GiveLoanPage} options={{ headerShown: false }} />
     <Stack.Screen name="Activities" component={ActivitiesScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
@@ -158,6 +163,19 @@ const MemberStack = () => (
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();
+  const [maintenance, setMaintenance] = useState({ enabled: false, message: '' });
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const res = await maintenanceAPI.getStatus();
+        setMaintenance({ enabled: Boolean(res?.data?.enabled), message: res?.data?.message || '' });
+      } catch (e) {
+        setMaintenance({ enabled: false, message: '' });
+      }
+    };
+    checkMaintenance();
+  }, []);
 
   if (loading) {
     return (
@@ -167,12 +185,16 @@ export default function AppNavigator() {
     );
   }
 
+  const isMember = user && user.role !== 'admin';
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : user.role === 'admin' ? (
         <Stack.Screen name="Main" component={AdminTabs} />
+      ) : maintenance.enabled ? (
+        <Stack.Screen name="Maintenance" component={MaintenanceScreen} />
       ) : (
         <Stack.Screen name="MemberHome" component={MemberStack} />
       )}

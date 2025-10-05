@@ -2,25 +2,25 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { installmentsAPI, loansAPI, membersAPI } from '../../services/api';
+import { installmentsAPI, membersAPI } from '../../services/api';
 
 export default function UpdatePage({ navigation }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [installment, setInstallment] = useState('1000');
-  const [interest, setInterest] = useState('');
-  const [loanRepayment, setLoanRepayment] = useState('');
   const [loading, setLoading] = useState(false);
   const [date, setDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [members, setMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [hasActiveLoan, setHasActiveLoan] = useState(false);
-  const [activeLoans, setActiveLoans] = useState([]);
-  const [selectedLoan, setSelectedLoan] = useState(null);
-  const [showLoanModal, setShowLoanModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedMember, setLastUpdatedMember] = useState(null);
+  
+  // Quick Add states
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [quickAddDate, setQuickAddDate] = useState('');
+  const [showQuickAddDatePicker, setShowQuickAddDatePicker] = useState(false);
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
 
   const fetchMembers = async () => {
     setMembersLoading(true);
@@ -45,33 +45,112 @@ export default function UpdatePage({ navigation }) {
     }
   };
 
-  const checkActiveLoan = async (member) => {
+  const handleQuickAddDateChange = (event, selectedDate) => {
+    setShowQuickAddDatePicker(false);
+    if (selectedDate) {
+      setQuickAddDate(selectedDate.toISOString().slice(0, 10));
+    }
+  };
+
+  const selectMember = (member) => {
     setSelectedMember(member);
     setShowMemberModal(false);
-    setActiveLoans([]);
-    setSelectedLoan(null);
-    try {
-      const loans = await loansAPI.getByMember(member._id);
-      const actives = loans.data.filter(loan => loan.status === 'active');
-      setActiveLoans(actives);
-      if (actives.length === 1) {
-        setSelectedLoan(actives[0]);
-      }
-    } catch (e) {
-      setActiveLoans([]);
-      setSelectedLoan(null);
-    }
   };
 
   const renderMemberItem = ({ item }) => (
     <TouchableOpacity
       style={styles.memberItem}
-      onPress={() => checkActiveLoan(item)}
+      onPress={() => selectMember(item)}
     >
       <Text style={styles.memberName}>{item.name}</Text>
       <Text style={styles.memberId}>ID: {item.memberId}</Text>
     </TouchableOpacity>
   );
+
+  const handleQuickAdd = async () => {
+    if (!quickAddDate) {
+      Alert.alert('Error', 'Please select a date for the installments');
+      return;
+    }
+
+    const memberCount = members.length;
+    if (memberCount === 0) {
+      Alert.alert('Error', 'No members found to add installments');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Quick Add',
+      `Add ₹1000 installment to all ${memberCount} members on ${quickAddDate}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add All',
+          onPress: async () => {
+            setQuickAddLoading(true);
+            try {
+              let successCount = 0;
+              let errorCount = 0;
+
+              // Add installments to all members
+              for (const member of members) {
+                try {
+                  await installmentsAPI.create({
+                    memberId: member._id,
+                    amount: 1000,
+                    date: quickAddDate
+                  });
+                  successCount++;
+                } catch (error) {
+                  console.error(`Error adding installment for ${member.name}:`, error);
+                  errorCount++;
+                }
+              }
+
+              // Show results
+              if (errorCount === 0) {
+                Alert.alert(
+                  'Success', 
+                  `Installments added successfully to all ${successCount} members`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        setShowQuickAddModal(false);
+                        setQuickAddDate('');
+                        // Navigate back to dashboard to refresh data
+                        navigation.navigate('AdminDashboard');
+                      }
+                    }
+                  ]
+                );
+              } else {
+                Alert.alert(
+                  'Partial Success',
+                  `Installments added to ${successCount} members. ${errorCount} failed.`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        setShowQuickAddModal(false);
+                        setQuickAddDate('');
+                        // Navigate back to dashboard to refresh data
+                        navigation.navigate('AdminDashboard');
+                      }
+                    }
+                  ]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to add installments to members');
+            } finally {
+              setQuickAddLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleUpdate = async () => {
     if (!selectedMember) {
@@ -84,41 +163,30 @@ export default function UpdatePage({ navigation }) {
       return;
     }
 
-    // Validate loan repayment amount if it's provided
-    if (selectedLoan && loanRepayment) {
-      const repaymentAmount = parseFloat(loanRepayment);
-      if (isNaN(repaymentAmount)) {
-        Alert.alert('Error', 'Invalid loan repayment amount');
-        return;
-      }
+    const installmentAmount = parseFloat(installment);
+    if (isNaN(installmentAmount) || installmentAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid installment amount');
+      return;
     }
 
     setLoading(true);
     try {
       const saveDate = date ? date : new Date().toISOString().slice(0, 10);
       
-      // Create installment record using installmentsAPI
+      // Create installment record
       await installmentsAPI.create({
         memberId: selectedMember._id,
-        amount: parseFloat(installment),
+        amount: installmentAmount,
         date: saveDate
       });
 
-      // If member has active loan(s), update loan repayment
-      if (selectedLoan && loanRepayment) {
-        await loansAPI.addRepayment(selectedLoan._id, parseFloat(loanRepayment));
-      }
-
-      Alert.alert('Success', 'Update successful', [
+      Alert.alert('Success', 'Installment recorded successfully', [
         { 
           text: 'OK', 
           onPress: () => {
             setInstallment('1000');
-            setInterest('');
-            setLoanRepayment('');
             setDate('');
             setSelectedMember(null);
-            // Show toast notification
             setLastUpdatedMember(selectedMember);
             // Navigate back to dashboard to refresh data
             navigation.navigate('AdminDashboard');
@@ -126,7 +194,7 @@ export default function UpdatePage({ navigation }) {
         }
       ]);
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to record installment');
     } finally {
       setLoading(false);
     }
@@ -136,13 +204,8 @@ export default function UpdatePage({ navigation }) {
     setRefreshing(true);
     await fetchMembers();
     setInstallment('1000');
-    setInterest('');
-    setLoanRepayment('');
     setDate('');
     setSelectedMember(null);
-    setActiveLoans([]);
-    setSelectedLoan(null);
-    setShowLoanModal(false);
     setLastUpdatedMember(null);
     setRefreshing(false);
   }, [fetchMembers]);
@@ -166,6 +229,12 @@ export default function UpdatePage({ navigation }) {
           <Icon name="arrow-left" size={28} color="#007AFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Update Member</Text>
+        <TouchableOpacity 
+          style={styles.quickAddButton}
+          onPress={() => setShowQuickAddModal(true)}
+        >
+          <Icon name="plus-circle" size={24} color="#007AFF" />
+        </TouchableOpacity>
       </View>
       
       {/* Member selection */}
@@ -208,90 +277,6 @@ export default function UpdatePage({ navigation }) {
         onChangeText={setInstallment}
         keyboardType="numeric"
       />
-      {/* If member has active loan(s), show loan picker and interest/repayment inputs */}
-      {activeLoans.length > 0 && (
-        <>
-          <Text style={styles.label}>Select Loan</Text>
-          <TouchableOpacity style={styles.selectBox} onPress={() => setShowLoanModal(true)}>
-            <Text style={styles.selectText}>
-              {selectedLoan ? `₹${selectedLoan.amount} (Outstanding: ₹${selectedLoan.outstanding})` : 'Select Loan'}
-            </Text>
-            <Icon name="chevron-down" size={24} color="#007AFF" />
-          </TouchableOpacity>
-
-          <Modal
-            visible={showLoanModal}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setShowLoanModal(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Select Loan</Text>
-                <FlatList
-                  data={activeLoans}
-                  keyExtractor={item => item._id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.memberItem}
-                      onPress={() => {
-                        setSelectedLoan(item);
-                        setShowLoanModal(false);
-                      }}
-                    >
-                      <Text style={styles.memberName}>₹{item.amount}</Text>
-                      <Text style={styles.memberId}>Outstanding: ₹{item.outstanding}</Text>
-                    </TouchableOpacity>
-                  )}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                />
-                <TouchableOpacity style={styles.closeModalBtn} onPress={() => setShowLoanModal(false)}>
-                  <Text style={styles.closeModalText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-
-          {selectedLoan && (
-            <View style={styles.loanDetails}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Outstanding Amount:</Text>
-                <Text style={styles.detailValue}>₹{selectedLoan.outstanding}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Interest (1%):</Text>
-                <Text style={styles.detailValue}>₹{(selectedLoan.outstanding * 0.01).toFixed(2)}</Text>
-              </View>
-            </View>
-          )}
-
-          <Text style={styles.label}>Loan Repayment</Text>
-          <TextInput
-            style={[styles.input, { color: 'black' }]}
-            placeholder="Enter loan repayment amount"
-            placeholderTextColor="black"
-            value={loanRepayment}
-            onChangeText={(text) => {
-              setLoanRepayment(text);
-              // Calculate interest as 1% of outstanding amount
-              const repaymentAmount = parseFloat(text) || 0;
-              setInterest((selectedLoan.outstanding * 0.01).toString());
-            }}
-            keyboardType="numeric"
-          />
-
-          <Text style={styles.label}>Interest</Text>
-          <TextInput
-            style={[styles.input, { color: 'black' }]}
-            placeholder="Enter interest amount"
-            placeholderTextColor="black"
-            value={interest}
-            onChangeText={setInterest}
-            keyboardType="numeric"
-            editable={false} // Make it read-only since it's auto-calculated
-          />
-        </>
-      )}
       {/* Date input (optional) with calendar icon */}
       <Text style={styles.label}>Date (optional)</Text>
       <View style={styles.dateInputRow}>
@@ -319,16 +304,95 @@ export default function UpdatePage({ navigation }) {
         onPress={handleUpdate}
         disabled={loading}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.updateButtonText}>Update</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.updateButtonText}>Record Installment</Text>}
       </TouchableOpacity>
+
+      {/* Quick Add Modal */}
+      <Modal
+        visible={showQuickAddModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowQuickAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Quick Add Installments</Text>
+              <TouchableOpacity onPress={() => setShowQuickAddModal(false)}>
+                <Icon name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalDescription}>
+              Add ₹1000 installment to all {members.length} members at once
+            </Text>
+
+            <Text style={styles.label}>Date</Text>
+            <View style={styles.dateInputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginRight: 8, color: 'black' }]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="black"
+                value={quickAddDate}
+                onChangeText={setQuickAddDate}
+              />
+              <TouchableOpacity onPress={() => setShowQuickAddDatePicker(true)}>
+                <Icon name="calendar" size={28} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+            
+            {showQuickAddDatePicker && (
+              <DateTimePicker
+                value={quickAddDate ? new Date(quickAddDate) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleQuickAddDateChange}
+              />
+            )}
+
+            <Text style={styles.modalNote}>
+              This will add ₹1000 installment to all {members.length} members on the selected date.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.modalButton, quickAddLoading && styles.disabledButton]}
+              onPress={handleQuickAdd}
+              disabled={quickAddLoading}
+            >
+              {quickAddLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.modalButtonText}>Add to All Members</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5', marginTop: 30 },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#007AFF', marginLeft: 16 },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    padding: 16, 
+    backgroundColor: '#fff', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#E5E5E5' 
+  },
+  title: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#007AFF',
+    flex: 1,
+    textAlign: 'center'
+  },
+  quickAddButton: {
+    padding: 8,
+  },
   selectBox: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -403,27 +467,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  loanDetails: {
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 10,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  detailValue: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
   lastUpdatedSection: {
     backgroundColor: '#f0f0f0',
     padding: 15,
@@ -435,5 +478,43 @@ const styles = StyleSheet.create({
   lastUpdatedText: {
     fontSize: 16,
     color: '#555',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalNote: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 }); 
