@@ -2,7 +2,7 @@
   "expo": {
     "name": "swanidhi",
     "slug": "swanidhi",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,8 @@
         "foregroundImage": "./assets/images/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.developerv.swanidhi"
+      "package": "com.developerv.swanidhi",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/images/logo.png"
@@ -40,7 +41,7 @@
       "url": "https://u.expo.dev/6b06e31b-8a74-40f8-afd5-475400e7b84f",
       "checkAutomatically": "ON_LOAD"
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.1.0",
     "plugins": [
       "expo-font"
     ]
