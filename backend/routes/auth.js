@@ -14,8 +14,7 @@ router.post('/login', async (req, res) => {
     // Find user by memberId
     const user = await User.findOne({ memberId });
     if (!user) {
-      // Log failed login attempt for non-existent user
-      await Logger.logUserLogin({ _id: 'unknown', name: 'Unknown', role: 'unknown', memberId }, 'failed_login', req.ip, req.get('User-Agent'), false, 'User not found');
+      // Don't log missing users to strict schema logs DB
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 

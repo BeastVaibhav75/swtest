@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Alert, BackHandler } from 'react-native';
 
+// Prevent multiple maintenance alerts/exits on Android causing crashes
+let androidMaintenanceAlertShown = false;
+
 const API_URL = 'https://swanidhi-backend.onrender.com/api'; // Updated to use your correct backend IP
 // const API_URL = 'http://10.0.2.2:5000/api'; // For Android emulator
 // const API_URL = 'http://localhost:5000/api'; // For iOS simulator
@@ -49,6 +52,10 @@ api.interceptors.response.use(
     }
     // Maintenance mode enforcement: show immediate alert and allow user to close app
     if (error.response && error.response.status === 503) {
+      if (androidMaintenanceAlertShown) {
+        return Promise.reject(error);
+      }
+      androidMaintenanceAlertShown = true;
       const message = error.response?.data?.message || 'The app is under maintenance.';
       Alert.alert(
         'Maintenance Mode',

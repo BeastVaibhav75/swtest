@@ -10,7 +10,7 @@ import LoginScreen from '../screens/LoginScreen';
 
 // Admin Screens
 import { useEffect, useState } from 'react';
-import { Alert, BackHandler } from 'react-native';
+import { Alert, BackHandler, Platform } from 'react-native';
 import AboutScreen from '../screens/admin/AboutScreen';
 import ActivitiesScreen from '../screens/admin/ActivitiesScreen';
 import AddMember from '../screens/admin/AddMember';
@@ -180,7 +180,7 @@ export default function AppNavigator() {
             'Maintenance Mode',
             message || 'The app is under maintenance.',
             [
-              { text: 'Close App', style: 'destructive', onPress: () => BackHandler.exitApp() },
+              { text: 'Close App', style: 'destructive', onPress: () => { if (Platform.OS === 'android') BackHandler.exitApp(); } },
             ],
             { cancelable: false }
           );

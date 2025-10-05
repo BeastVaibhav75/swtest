@@ -785,19 +785,23 @@ class Logger {
   }
 
   static async logUserLogin(user, action, ipAddress, userAgent, success = true, failureReason = null) {
-    await this.logLogin({
-      userId: user._id,
-      userName: user.name,
-      userRole: user.role,
-      action: action,
-      ipAddress: ipAddress,
-      userAgent: userAgent,
-      success: success,
-      failureReason: failureReason,
-      additionalData: {
-        memberId: user.memberId
-      }
-    });
+    if (user && user._id) {
+      await this.logLogin({
+        userId: user._id,
+        userName: user.name,
+        userRole: user.role,
+        action: action,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+        success: success,
+        failureReason: failureReason,
+        additionalData: {
+          memberId: user.memberId
+        }
+      });
+    } else {
+      console.warn('logUserLogin called without valid user; skipping strict schema log');
+    }
   }
 }
 
