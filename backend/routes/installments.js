@@ -7,6 +7,7 @@ const Fund = require('../models/Fund');
 const authenticate = require('../middleware/authenticate');
 const Logger = require('../services/logger');
 const Loan = require('../models/Loan');
+const mongoose = require('mongoose');
 
 // Test endpoint
 router.get('/test', (req, res) => {
@@ -357,6 +358,101 @@ router.get('/diagnostic', authenticate, isAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Installments diagnostic error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Bulk quick-add installments to all members (fast, atomic-ish)
+router.post('/quick-add', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { amount = 1000, date } = req.body;
+    if (!date) {
+      return res.status(400).json({ message: 'Date is required' });
+    }
+
+    const targetDate = new Date(date);
+    const members = await User.find({ role: 'member', paused: false }).select('_id');
+    if (!members || members.length === 0) {
+      return res.status(400).json({ message: 'No active members found' });
+    }
+
+    // Prepare bulk writes
+    const installmentInserts = members.map(m => ({
+      insertOne: {
+        document: {
+          memberId: m._id,
+          amount,
+          date: targetDate,
+          recordedBy: req.user.userId
+        }
+      }
+    }));
+
+    // Insert installments in bulk
+    const installmentResult = await Installment.bulkWrite(installmentInserts);
+
+    // Fetch the created installment ids (Mongo returns nInserted, but not ids in bulkWrite)
+    // We'll re-query minimal docs for the date/amount/recorder combo to build histories quickly
+    const createdInstallments = await Installment.find({
+      amount,
+      date: targetDate,
+      recordedBy: req.user.userId
+    }).select('_id memberId amount');
+
+    // Bulk update members' investmentBalance
+    const memberUpdates = members.map(m => ({
+      updateOne: {
+        filter: { _id: m._id },
+        update: { $inc: { investmentBalance: amount } }
+      }
+    }));
+    await User.bulkWrite(memberUpdates);
+
+    // Bulk update fund
+    const fund = await Fund.findOne();
+    if (fund) {
+      fund.totalFund = (fund.totalFund || 0) + amount * members.length;
+      await fund.save();
+    } else {
+      const newFund = new Fund({ totalFund: amount * members.length });
+      await newFund.save();
+    }
+
+    // Bulk insert InvestmentHistory
+    const historyInserts = createdInstallments.map(ci => ({
+      insertOne: {
+        document: {
+          memberId: ci.memberId,
+          amount: ci.amount,
+          type: 'installment',
+          refId: ci._id.toString()
+        }
+      }
+    }));
+    await InvestmentHistory.bulkWrite(historyInserts);
+
+    // Log one aggregated transaction
+    await Logger.logTransaction({
+      type: 'installment',
+      action: 'created',
+      amount: amount * members.length,
+      memberId: undefined,
+      memberName: 'Bulk Quick Add',
+      memberIdCode: 'BULK',
+      referenceId: undefined,
+      referenceType: 'installment_bulk',
+      description: `Quick add ₹${amount} to ${members.length} members on ${targetDate.toISOString().slice(0,10)}`,
+      performedBy: req.user.userId,
+      performedByName: 'Admin',
+      fundImpact: amount * members.length,
+      balancesBefore: {},
+      balancesAfter: {},
+      additionalData: { count: members.length, amountPerMember: amount, date: targetDate }
+    });
+
+    res.status(201).json({ inserted: installmentResult.insertedCount || members.length });
+  } catch (error) {
+    console.error('Quick add installments error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

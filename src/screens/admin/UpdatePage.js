@@ -89,60 +89,23 @@ export default function UpdatePage({ navigation }) {
           onPress: async () => {
             setQuickAddLoading(true);
             try {
-              let successCount = 0;
-              let errorCount = 0;
-
-              // Add installments to all members
-              for (const member of members) {
-                try {
-                  await installmentsAPI.create({
-                    memberId: member._id,
-                    amount: 1000,
-                    date: quickAddDate
-                  });
-                  successCount++;
-                } catch (error) {
-                  console.error(`Error adding installment for ${member.name}:`, error);
-                  errorCount++;
-                }
-              }
-
-              // Show results
-              if (errorCount === 0) {
-                Alert.alert(
-                  'Success', 
-                  `Installments added successfully to all ${successCount} members`,
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        setShowQuickAddModal(false);
-                        setQuickAddDate('');
-                        // Navigate back to dashboard to refresh data
-                        navigation.navigate('AdminDashboard');
-                      }
+              const res = await installmentsAPI.quickAdd(1000, quickAddDate);
+              Alert.alert(
+                'Success',
+                `Installments added to ${members.length} members`,
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setShowQuickAddModal(false);
+                      setQuickAddDate('');
+                      navigation.navigate('AdminDashboard');
                     }
-                  ]
-                );
-              } else {
-                Alert.alert(
-                  'Partial Success',
-                  `Installments added to ${successCount} members. ${errorCount} failed.`,
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        setShowQuickAddModal(false);
-                        setQuickAddDate('');
-                        // Navigate back to dashboard to refresh data
-                        navigation.navigate('AdminDashboard');
-                      }
-                    }
-                  ]
-                );
-              }
+                  }
+                ]
+              );
             } catch (error) {
-              Alert.alert('Error', 'Failed to add installments to members');
+              Alert.alert('Error', error.response?.data?.message || 'Failed to add installments');
             } finally {
               setQuickAddLoading(false);
             }

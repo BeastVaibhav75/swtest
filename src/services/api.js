@@ -111,6 +111,7 @@ export const installmentsAPI = {
   update: (installmentId, data) => api.patch(`/installments/${installmentId}`, data),
   delete: (installmentId) => api.delete(`/installments/${installmentId}`),
   diagnostic: () => api.get('/installments/diagnostic'),
+  quickAdd: (amount, date) => api.post('/installments/quick-add', { amount, date }),
 };
 
 // Expenses API
