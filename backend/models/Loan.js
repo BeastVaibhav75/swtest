@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const repaymentSchema = new mongoose.Schema({
   amount: Number,
   date: Date,
+  // Link the repayment to the generated interest payment entry for precise reversals/updates
+  interestPaymentId: { type: mongoose.Schema.Types.ObjectId },
 });
 
 const interestPaymentSchema = new mongoose.Schema({

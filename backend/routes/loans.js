@@ -174,17 +174,19 @@ router.delete('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (r
     const deletedRepayment = loan.repayments[repaymentIndex];
 
     // 1. Revert loan outstanding amount
-    loan.outstanding = Number(loan.outstanding || 0) + deletedRepayment.amount;
+    loan.outstanding = Number(loan.outstanding || 0) + Number(deletedRepayment.amount || 0);
 
-    // 2. Adjust total fund
+    // 2. Adjust total fund for principal part
     const fund = await Fund.findOne();
     if (fund) {
-      fund.totalFund = Number(fund.totalFund || 0) - deletedRepayment.amount; // Repayment decreases fund upon deletion
+      fund.totalFund = Number(fund.totalFund || 0) - Number(deletedRepayment.amount || 0); // Repayment decreases fund upon deletion
       await fund.save();
     }
 
-    // 3. Revert interest distribution if any
-    const interestPaymentIndex = loan.interestPayments.findIndex(ip => ip.date.getTime() === deletedRepayment.date.getTime()); // Assuming matching date for now
+    // 3. Revert interest distribution if any (based on linked interestPaymentId)
+    const interestPaymentIndex = deletedRepayment.interestPaymentId
+      ? loan.interestPayments.findIndex(ip => ip._id.toString() === deletedRepayment.interestPaymentId.toString())
+      : -1;
 
     if (interestPaymentIndex !== -1) {
       const deletedInterestPayment = loan.interestPayments[interestPaymentIndex];
@@ -265,8 +267,10 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
       await fund.save();
     }
 
-    // 3. Revert old interest distribution if any, and apply new interest distribution
-    const oldInterestPaymentIndex = loan.interestPayments.findIndex(ip => ip.date.getTime() === oldRepayment.date.getTime());
+    // 3. Revert old interest distribution if any, and apply new interest distribution (via link)
+    const oldInterestPaymentIndex = oldRepayment.interestPaymentId
+      ? loan.interestPayments.findIndex(ip => ip._id.toString() === oldRepayment.interestPaymentId.toString())
+      : -1;
     let oldInterestAmount = 0;
     let oldEarningsDistributionId = null;
 
@@ -314,11 +318,13 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
         });
         await earningsDistribution.save();
 
-        loan.interestPayments.push({
+        const newInterestPayment = {
           amount: interestAmount,
           date: new Date(),
           distributionId: earningsDistribution._id,
-        });
+        };
+        loan.interestPayments.push(newInterestPayment);
+        const createdInterestPaymentId = loan.interestPayments[loan.interestPayments.length - 1]._id;
 
         if (fund) {
           fund.totalFund = Number(fund.totalFund || 0) + interestAmount;
@@ -347,6 +353,12 @@ router.patch('/:loanId/repayment/:repaymentId', authenticate, isAdmin, async (re
     // 4. Update the repayment in the loan's repayments array
     loan.repayments[repaymentIndex].amount = newRepaymentAmount;
     loan.repayments[repaymentIndex].date = new Date(); // Update date to current date as well
+    // Link the repayment to the new interest payment if any
+    if (interestAmount > 0) {
+      loan.repayments[repaymentIndex].interestPaymentId = createdInterestPaymentId;
+    } else {
+      loan.repayments[repaymentIndex].interestPaymentId = undefined;
+    }
 
     await loan.save();
 
@@ -382,6 +394,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
     let interestDistributed = false;
 
     // If there's interest to distribute
+    let createdInterestPaymentId = null;
     if (interestAmount > 0) {
       // Get only active (non-paused) members
       const activeMembers = await User.find({ role: 'member', paused: false });
@@ -397,11 +410,13 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
         await earningsDistribution.save();
 
         // Add interest payment record to the loan
-        loan.interestPayments.push({
+        const newInterestPayment = {
           amount: interestAmount,
           date: new Date(),
           distributionId: earningsDistribution._id
-        });
+        };
+        loan.interestPayments.push(newInterestPayment);
+        createdInterestPaymentId = loan.interestPayments[loan.interestPayments.length - 1]._id;
 
         // Update total fund with full interest amount
         const fund = await Fund.findOne();
@@ -440,7 +455,7 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
 
     // Add repayment to loan if amount is not 0
     if (repaymentAmount > 0) {
-      loan.repayments.push({ amount: repaymentAmount, date: new Date() });
+      loan.repayments.push({ amount: repaymentAmount, date: new Date(), interestPaymentId: createdInterestPaymentId || undefined });
       
       // Log the repayment transaction
       await Logger.logRepayment(loan, repaymentAmount, req.user.userId);
