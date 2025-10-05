@@ -96,6 +96,7 @@ export const loansAPI = {
   getTotalOutstanding: () => api.get('/loans/total-outstanding'),
   create: (loanData) => api.post('/loans', loanData),
   addRepayment: (loanId, amount) => api.post(`/loans/${loanId}/repayment`, { amount }),
+  repayMember: (memberId, amount) => api.post('/loans/repay-member', { memberId, amount }),
   update: (loanId, data) => api.patch(`/loans/${loanId}`, data),
   delete: (loanId) => api.delete(`/loans/${loanId}`),
   deleteRepayment: (loanId, repaymentId) => api.delete(`/loans/${loanId}/repayment/${repaymentId}`),

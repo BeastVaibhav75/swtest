@@ -478,6 +478,119 @@ router.post('/:loanId/repayment', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Repay across member's active loans (oldest first)
+router.post('/repay-member', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { memberId, amount } = req.body;
+    if (!memberId) {
+      return res.status(400).json({ message: 'memberId is required' });
+    }
+
+    const repaymentTotal = Number(amount || 0);
+    if (isNaN(repaymentTotal) || repaymentTotal < 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
+    // Fetch active loans for the member and sort oldest first
+    const loans = await Loan.find({ memberId, status: 'active' }).sort({ date: 1, _id: 1 });
+    if (!loans || loans.length === 0) {
+      return res.status(404).json({ message: 'No active loans found for this member' });
+    }
+
+    let remaining = repaymentTotal;
+    const updatedLoans = [];
+
+    for (const loan of loans) {
+      // 1) Distribute interest for this loan based on outstanding BEFORE applying repayment
+      const interestAmount = Number(loan.outstanding || 0) * 0.01;
+      let createdInterestPaymentId = null;
+      if (interestAmount > 0) {
+        const activeMembers = await User.find({ role: 'member', paused: false });
+        if (activeMembers.length > 0) {
+          const earningsDistribution = new EarningsDistribution({
+            type: 'interest',
+            totalAmount: interestAmount,
+            perMemberAmount: interestAmount / activeMembers.length,
+            memberIds: activeMembers.map(m => m._id),
+            refId: loan._id.toString()
+          });
+          await earningsDistribution.save();
+
+          loan.interestPayments.push({ amount: interestAmount, date: new Date(), distributionId: earningsDistribution._id });
+          createdInterestPaymentId = loan.interestPayments[loan.interestPayments.length - 1]._id;
+
+          // Update fund and members' interest earned
+          const fund = await Fund.findOne();
+          if (fund) {
+            fund.totalFund = Number(fund.totalFund || 0) + interestAmount;
+            await fund.save();
+          } else {
+            const newFund = new Fund({ totalFund: interestAmount });
+            await newFund.save();
+          }
+
+          const perMemberAmount = interestAmount / activeMembers.length;
+          for (const member of activeMembers) {
+            member.interestEarned = Number(member.interestEarned || 0) + perMemberAmount;
+            await member.save();
+            const memberHistory = new InvestmentHistory({
+              memberId: member._id,
+              amount: perMemberAmount,
+              type: 'interest',
+              refId: earningsDistribution._id.toString()
+            });
+            await memberHistory.save();
+          }
+
+          await Logger.logInterestDistributed(interestAmount, activeMembers.length, req.user.userId);
+        }
+      }
+
+      // 2) Apply allocated principal repayment for this loan (skip when 0)
+      const alloc = Math.max(0, Math.min(remaining, Number(loan.outstanding || 0)));
+      if (alloc > 0) {
+        loan.repayments.push({ amount: alloc, date: new Date(), interestPaymentId: createdInterestPaymentId || undefined });
+        await Logger.logRepayment(loan, alloc, req.user.userId);
+      }
+
+      // 3) Recompute outstanding and status
+      const totalRepayments = loan.repayments.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      loan.outstanding = Math.max(0, Number(loan.amount) - totalRepayments);
+      if (loan.outstanding <= 0) loan.status = 'closed';
+
+      await loan.save();
+      updatedLoans.push(loan);
+
+      // Reduce remaining after applying alloc
+      remaining = Math.max(0, remaining - alloc);
+    }
+
+    // Build breakdown response
+    const breakdown = updatedLoans.map(l => ({
+      loanId: l._id,
+      originalAmount: l.amount,
+      outstanding: l.outstanding,
+      interestThisCycle: Number(l.interestPayments?.[l.interestPayments.length - 1]?.date) >= 0
+        ? Number(l.interestPayments?.[l.interestPayments.length - 1]?.amount || 0)
+        : 0
+    }));
+    const totalInterest = breakdown.reduce((s, b) => s + Number(b.interestThisCycle || 0), 0);
+    const totalOutstanding = updatedLoans.reduce((s, l) => s + Number(l.outstanding || 0), 0);
+
+    res.status(200).json({
+      appliedRepayment: repaymentTotal,
+      remainingUnapplied: remaining,
+      totalInterest,
+      totalOutstanding,
+      loans: updatedLoans,
+      breakdown
+    });
+  } catch (error) {
+    console.error('repay-member error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Update a loan
 router.patch('/:loanId', authenticate, isAdmin, async (req, res) => {
   try {

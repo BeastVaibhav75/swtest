@@ -1,18 +1,18 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { loansAPI, membersAPI } from '../../services/api';
@@ -32,6 +32,7 @@ export default function UpdateLoansScreen({ navigation }) {
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedMember, setLastUpdatedMember] = useState(null);
+  const [totalInterestAllLoans, setTotalInterestAllLoans] = useState('');
 
   const fetchMembers = async () => {
     setMembersLoading(true);
@@ -63,6 +64,7 @@ export default function UpdateLoansScreen({ navigation }) {
     setSelectedLoan(null);
     setLoanRepayment('');
     setInterest('');
+    setTotalInterestAllLoans('');
     
     try {
       const loans = await loansAPI.getByMember(member._id);
@@ -75,6 +77,11 @@ export default function UpdateLoansScreen({ navigation }) {
         setSelectedLoan(actives[0]);
         // Auto-calculate interest for single loan
         setInterest((actives[0].outstanding * 0.01).toFixed(2));
+      } else if (actives.length > 1) {
+        // For multiple loans, show combined interest across all active loans
+        const totalInt = actives.reduce((sum, l) => sum + (Number(l.outstanding || 0) * 0.01), 0);
+        setTotalInterestAllLoans(totalInt.toFixed(2));
+        setInterest(totalInt.toFixed(2));
       }
     } catch (e) {
       setActiveLoans([]);
@@ -99,52 +106,78 @@ export default function UpdateLoansScreen({ navigation }) {
       return;
     }
 
-    if (!selectedLoan) {
-      Alert.alert('Error', 'Please select a loan');
-      return;
-    }
-
-    if (!loanRepayment) {
+    if (!loanRepayment && activeLoans.length <= 1) {
       Alert.alert('Error', 'Please enter loan repayment amount');
       return;
     }
 
     const repaymentAmount = parseFloat(loanRepayment);
-    if (isNaN(repaymentAmount) || repaymentAmount < 0) {
+    if ((isNaN(repaymentAmount) || repaymentAmount < 0)) {
       Alert.alert('Error', 'Please enter a valid repayment amount (0 or greater)');
-      return;
-    }
-
-    if (repaymentAmount > selectedLoan.outstanding) {
-      Alert.alert('Error', 'Repayment amount cannot exceed outstanding amount');
       return;
     }
 
     setLoading(true);
     try {
-      // Add repayment to the loan (even if amount is 0, it will distribute interest)
-      await loansAPI.addRepayment(selectedLoan._id, repaymentAmount);
+      // If multiple active loans, call the single backend endpoint once
+      if (activeLoans.length > 1) {
+        await loansAPI.repayMember(selectedMember._id, Number(isNaN(repaymentAmount) ? 0 : repaymentAmount));
 
-      const successMessage = repaymentAmount === 0 
-        ? 'Interest distributed successfully (no repayment recorded)' 
-        : 'Loan repayment recorded successfully';
+        const successMessage = (Number(repaymentAmount) === 0)
+          ? 'Interest distributed for all active loans'
+          : 'Repayment allocated across loans and interest distributed';
 
-      Alert.alert('Success', successMessage, [
-        { 
-          text: 'OK', 
-          onPress: () => {
-            setLoanRepayment('');
-            setInterest('');
-            setDate('');
-            setSelectedMember(null);
-            setSelectedLoan(null);
-            setActiveLoans([]);
-            setLastUpdatedMember(selectedMember);
-            // Navigate back to dashboard to refresh data
-            navigation.navigate('AdminDashboard');
+        Alert.alert('Success', successMessage, [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              setLoanRepayment('');
+              setInterest('');
+              setDate('');
+              setSelectedMember(null);
+              setSelectedLoan(null);
+              setActiveLoans([]);
+              setTotalInterestAllLoans('');
+              setLastUpdatedMember(selectedMember);
+              navigation.navigate('AdminDashboard');
+            }
           }
+        ]);
+      } else {
+        // Single loan flow: requires a selected loan
+        if (!selectedLoan) {
+          Alert.alert('Error', 'Please select a loan');
+          return;
         }
-      ]);
+        if (repaymentAmount > selectedLoan.outstanding) {
+          Alert.alert('Error', 'Repayment amount cannot exceed outstanding amount');
+          return;
+        }
+
+        // Add repayment to the loan (even if amount is 0, it will distribute interest)
+        await loansAPI.addRepayment(selectedLoan._id, repaymentAmount);
+
+        const successMessage = repaymentAmount === 0 
+          ? 'Interest distributed successfully (no repayment recorded)' 
+          : 'Loan repayment recorded successfully';
+
+        Alert.alert('Success', successMessage, [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              setLoanRepayment('');
+              setInterest('');
+              setDate('');
+              setSelectedMember(null);
+              setSelectedLoan(null);
+              setActiveLoans([]);
+              setLastUpdatedMember(selectedMember);
+              // Navigate back to dashboard to refresh data
+              navigation.navigate('AdminDashboard');
+            }
+          }
+        ]);
+      }
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to update loan');
     } finally {
@@ -219,17 +252,22 @@ export default function UpdateLoansScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Loan selection (only show if member has active loans) */}
+      {/* Loan selection (show picker only if exactly 1 active loan; multi-loan will auto-allocate) */}
       {activeLoans.length > 0 && (
         <>
-          <Text style={styles.label}>Select Loan</Text>
-          <TouchableOpacity style={styles.selectBox} onPress={() => setShowLoanModal(true)}>
-            <Text style={styles.selectText}>
-              {selectedLoan ? `₹${selectedLoan.amount} (Outstanding: ₹${selectedLoan.outstanding})` : 'Select Loan'}
-            </Text>
-            <Icon name="chevron-down" size={24} color="#007AFF" />
-          </TouchableOpacity>
+          {activeLoans.length === 1 && (
+            <>
+              <Text style={styles.label}>Select Loan</Text>
+              <TouchableOpacity style={styles.selectBox} onPress={() => setShowLoanModal(true)}>
+                <Text style={styles.selectText}>
+                  {selectedLoan ? `₹${selectedLoan.amount} (Outstanding: ₹${selectedLoan.outstanding})` : 'Select Loan'}
+                </Text>
+                <Icon name="chevron-down" size={24} color="#007AFF" />
+              </TouchableOpacity>
+            </>
+          )}
 
+          {activeLoans.length === 1 && (
           <Modal
             visible={showLoanModal}
             animationType="slide"
@@ -265,8 +303,10 @@ export default function UpdateLoansScreen({ navigation }) {
               </View>
             </View>
           </Modal>
+          )}
 
-          {selectedLoan && (
+          {/* Loan details for single loan */}
+          {activeLoans.length === 1 && selectedLoan && (
             <View style={styles.loanDetails}>
               <Text style={styles.loanDetailsTitle}>Loan Details</Text>
               <View style={styles.detailRow}>
@@ -292,6 +332,29 @@ export default function UpdateLoansScreen({ navigation }) {
             </View>
           )}
 
+          {/* Multiple loans breakdown and totals */}
+          {activeLoans.length > 1 && (
+            <View style={styles.loanDetails}>
+              <Text style={styles.loanDetailsTitle}>Active Loans Breakdown</Text>
+              {activeLoans
+                .slice()
+                .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
+                .map((ln) => (
+                  <View key={ln._id} style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Loan ₹{ln.amount} | Outstanding ₹{ln.outstanding}</Text>
+                    <Text style={[styles.detailValue, styles.interestValue]}>Int: ₹{(Number(ln.outstanding || 0) * 0.01).toFixed(2)}</Text>
+                  </View>
+              ))}
+              <View style={[styles.detailRow, { marginTop: 6 }] }>
+                <Text style={[styles.detailLabel, { fontWeight: 'bold' }]}>Total Interest (all active loans)</Text>
+                <Text style={[styles.detailValue, styles.interestValue]}>₹{totalInterestAllLoans || '0.00'}</Text>
+              </View>
+              <Text style={[styles.infoText, { textAlign: 'left', marginTop: 8 }]}>
+                Repayment will be applied to oldest loan first. Any remaining amount rolls into the next loan.
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.label}>Loan Repayment Amount</Text>
           <TextInput
             style={[styles.input, { color: 'black' }]}
@@ -301,8 +364,11 @@ export default function UpdateLoansScreen({ navigation }) {
             onChangeText={(text) => {
               setLoanRepayment(text);
               // Recalculate interest when repayment amount changes
-              if (selectedLoan) {
+              if (activeLoans.length === 1 && selectedLoan) {
                 setInterest((selectedLoan.outstanding * 0.01).toFixed(2));
+              } else if (activeLoans.length > 1) {
+                const totalInt = activeLoans.reduce((sum, l) => sum + (Number(l.outstanding || 0) * 0.01), 0);
+                setInterest(totalInt.toFixed(2));
               }
             }}
             keyboardType="numeric"
@@ -318,8 +384,8 @@ export default function UpdateLoansScreen({ navigation }) {
           />
 
           <Text style={styles.infoText}>
-            ℹ️ Interest (1% of outstanding amount) will be distributed equally among all active members.
-            {'\n'}💡 Enter 0 to distribute interest only without recording a repayment.
+            ℹ️ Interest (1% of outstanding per loan) will be distributed equally among all active members.
+            {'\n'}💡 Enter 0 to distribute interest only without recording a repayment. With multiple loans, interest for each loan is distributed.
           </Text>
         </>
       )}
@@ -349,9 +415,9 @@ export default function UpdateLoansScreen({ navigation }) {
       )}
 
       <TouchableOpacity 
-        style={[styles.updateButton, (!selectedMember || !selectedLoan || !loanRepayment) && styles.disabledButton]} 
+        style={[styles.updateButton, (!selectedMember || (!loanRepayment && activeLoans.length <= 1)) && styles.disabledButton]} 
         onPress={handleLoanUpdate}
-        disabled={loading || !selectedMember || !selectedLoan || !loanRepayment}
+        disabled={loading || !selectedMember || (!loanRepayment && activeLoans.length <= 1)}
       >
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.updateButtonText}>Update Loan</Text>}
       </TouchableOpacity>
