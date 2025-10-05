@@ -10,6 +10,7 @@ import LoginScreen from '../screens/LoginScreen';
 
 // Admin Screens
 import { useEffect, useState } from 'react';
+import { Alert, BackHandler } from 'react-native';
 import AboutScreen from '../screens/admin/AboutScreen';
 import ActivitiesScreen from '../screens/admin/ActivitiesScreen';
 import AddMember from '../screens/admin/AddMember';
@@ -170,7 +171,20 @@ export default function AppNavigator() {
     const checkMaintenance = async () => {
       try {
         const res = await maintenanceAPI.getStatus();
-        setMaintenance({ enabled: Boolean(res?.data?.enabled), message: res?.data?.message || '' });
+        const enabled = Boolean(res?.data?.enabled);
+        const message = res?.data?.message || '';
+        setMaintenance({ enabled, message });
+        // Immediate modal for members when maintenance is on
+        if (enabled && user && user.role !== 'admin') {
+          Alert.alert(
+            'Maintenance Mode',
+            message || 'The app is under maintenance.',
+            [
+              { text: 'Close App', style: 'destructive', onPress: () => BackHandler.exitApp() },
+            ],
+            { cancelable: false }
+          );
+        }
       } catch (e) {
         // ignore
       }

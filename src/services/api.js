@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { Alert, BackHandler } from 'react-native';
 
 const API_URL = 'https://swanidhi-backend.onrender.com/api'; // Updated to use your correct backend IP
 // const API_URL = 'http://10.0.2.2:5000/api'; // For Android emulator
@@ -45,6 +46,18 @@ api.interceptors.response.use(
       
       // To trigger a navigation reset from here, it's more complex and typically involves a global navigation service.
       // Given the setup, clearing storage is the primary action. The screens using `useAuth` will react.
+    }
+    // Maintenance mode enforcement: show immediate alert and allow user to close app
+    if (error.response && error.response.status === 503) {
+      const message = error.response?.data?.message || 'The app is under maintenance.';
+      Alert.alert(
+        'Maintenance Mode',
+        message,
+        [
+          { text: 'Close App', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ],
+        { cancelable: false }
+      );
     }
     return Promise.reject(error);
   }
