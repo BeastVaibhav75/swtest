@@ -166,15 +166,18 @@ export default function AppNavigator() {
   const [maintenance, setMaintenance] = useState({ enabled: false, message: '' });
 
   useEffect(() => {
+    let intervalId;
     const checkMaintenance = async () => {
       try {
         const res = await maintenanceAPI.getStatus();
         setMaintenance({ enabled: Boolean(res?.data?.enabled), message: res?.data?.message || '' });
       } catch (e) {
-        setMaintenance({ enabled: false, message: '' });
+        // ignore
       }
     };
     checkMaintenance();
+    intervalId = setInterval(checkMaintenance, 15000); // recheck every 15s
+    return () => intervalId && clearInterval(intervalId);
   }, []);
 
   if (loading) {

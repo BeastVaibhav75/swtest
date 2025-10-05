@@ -29,6 +29,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Global maintenance check (after logging, before routes)
+const checkMaintenance = require('./middleware/checkMaintenance');
+app.use(checkMaintenance);
+
 // MongoDB Connection
 console.log('Attempting to connect to MongoDB...');
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/swanidhi', {
