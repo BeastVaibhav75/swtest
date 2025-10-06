@@ -33,10 +33,6 @@ app.use((req, res, next) => {
 const checkMaintenance = require('./middleware/checkMaintenance');
 app.use(checkMaintenance);
 
-// Force update check (after maintenance, before routes)
-const checkAppVersion = require('./middleware/checkAppVersion');
-app.use(checkAppVersion);
-
 // MongoDB Connection
 console.log('Attempting to connect to MongoDB...');
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/swanidhi', {
