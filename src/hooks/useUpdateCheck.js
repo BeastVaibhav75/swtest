@@ -56,11 +56,8 @@ export const useUpdateCheck = () => {
               {
                 text: 'Download Now',
                 onPress: () => {
-                  if (downloadUrl) {
-                    Linking.openURL(downloadUrl);
-                  } else {
-                    Alert.alert('Download Link', 'Please contact the administrator for the latest APK file.');
-                  }
+                  const fallbackUrl = 'https://beastvaibhav75.github.io/Swanidhi_Download/';
+                  Linking.openURL(downloadUrl || fallbackUrl);
                 },
               },
             ],
@@ -75,12 +72,32 @@ export const useUpdateCheck = () => {
       }
       // If API check failed and this was a manual check, show error
       if (apiCheckFailed && !auto) {
-        Alert.alert('Unable to Check for Updates', 'Please try again later or update through the app store.');
+        Alert.alert(
+          'Unable to Check for Updates',
+          'Please try again later. You can also download the latest APK from our website.',
+          [
+            {
+              text: 'Open Download Page',
+              onPress: () => Linking.openURL('https://beastvaibhav75.github.io/Swanidhi_Download/'),
+            },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
       }
     } catch (error) {
       console.error('Check for updates error:', error);
       if (!__DEV__) {
-        Alert.alert('Error', 'Unable to check for updates. Please try again later or update through the app store.');
+        Alert.alert(
+          'Error',
+          'Unable to check for updates. You can download the latest APK from our website.',
+          [
+            {
+              text: 'Open Download Page',
+              onPress: () => Linking.openURL('https://beastvaibhav75.github.io/Swanidhi_Download/'),
+            },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
       }
     } finally {
       if (setChecking) setChecking(false);
