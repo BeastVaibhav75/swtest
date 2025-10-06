@@ -49,7 +49,7 @@ export default function MemberDashboard({ navigation }) {
   const [totalFund, setTotalFund] = useState(0);
   const [monthlyInterestEarned, setMonthlyInterestEarned] = useState(0);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const { updating } = useUpdateCheck();
+  const { updating, checkForUpdates } = useUpdateCheck();
 
   const fetchDashboardData = async () => {
     try {
@@ -137,6 +137,11 @@ export default function MemberDashboard({ navigation }) {
       setLoading(false);
     }
   }, [user]);
+
+  // Auto check for updates when member dashboard mounts
+  useEffect(() => {
+    checkForUpdates({ auto: true });
+  }, [checkForUpdates]);
 
   useFocusEffect(
     React.useCallback(() => {

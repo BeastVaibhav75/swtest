@@ -49,11 +49,16 @@ export default function AdminDashboard() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user, logout, accounts, loginByPhone, phone } = useAuth();
-  const { updating } = useUpdateCheck();
+  const { updating, checkForUpdates } = useUpdateCheck();
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Auto check for updates when dashboard mounts
+  useEffect(() => {
+    checkForUpdates({ auto: true });
+  }, [checkForUpdates]);
 
   // Use useFocusEffect to refresh data when screen comes into focus
   useFocusEffect(
